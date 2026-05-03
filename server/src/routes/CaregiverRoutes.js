@@ -1,0 +1,12 @@
+import { createCaregiver, getCaregivers, getCaregiverById, updateCaregiver, deleteCaregiver, getCaregiverDashboard, addTask, updateTaskStatus } from "../controllers/CaregiverController.js";
+import express from "express";
+const router = express.Router();
+router.post('/', createCaregiver);
+router.get('/', getCaregivers);
+router.get('/:id', getCaregiverById);
+router.put('/:id', updateCaregiver);
+router.delete('/:id', deleteCaregiver);
+router.get('/:id/dashboard', getCaregiverDashboard);
+router.post('/:id/tasks', addTask);
+router.put('/:id/tasks/:taskId', updateTaskStatus);
+export default router;

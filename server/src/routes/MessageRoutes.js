@@ -1,0 +1,11 @@
+import express from "express";
+import { createMessage, getMessages, getMessageById, updateMessage, deleteMessage, getContacts, getChatHistory } from "../controllers/MessagesController.js";
+const routerM = express.Router();
+routerM.post('/', createMessage);
+routerM.get('/', getMessages);
+routerM.get('/:id', getMessageById);
+routerM.put('/:id', updateMessage);
+routerM.delete('/:id', deleteMessage);
+routerM.get('/:id/contacts', getContacts);
+routerM.get('/:userId/history/:contactId', getChatHistory);
+export default routerM;
