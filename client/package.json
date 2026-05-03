@@ -25,5 +25,14 @@
     "react-dom": "^18.2.0",
     "recharts": "^3.8.0",
     "slouma-health-app": "file:.."
+  },
+  {
+  "scripts": {
+    "build": "npm install --include=dev && vite build"
+  },
+  "dependencies": {
+    "vite": "^5.0.0",
+    "@vitejs/plugin-react": "^4.0.0"
   }
+}
 }
