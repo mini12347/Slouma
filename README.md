@@ -127,14 +127,6 @@ npm start
 
 ## 👥 User Roles & Access
 
-### Demo Credentials
-After running the seed script, you can use these accounts:
-
-**Admin**: admin@slouma.com / password123
-**Doctor**: doctor@slouma.com / password123  
-**Patient**: patient@example.com / password123
-**Caregiver**: caregiver@slouma.com / password123
-
 ## 🔧 Available Scripts
 
 - `npm run dev` - Start both client and server in development
@@ -191,22 +183,5 @@ The API provides endpoints for:
 - Notifications (`/api/notifications`)
 - Reports (`/api/reports`)
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the ISC License.
-
-## 🆘 Support
-
-For support and questions, please contact the development team.
-
----
 
 **Slouma Healthcare Platform** - Transforming healthcare management through technology.
