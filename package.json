@@ -24,7 +24,9 @@
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
+  {
   "scripts": {
-  "build": "cd client && npm install && npm run build"
+    "build": "cd client && npm install --include=dev && npm run build"
   }
+}
 }
