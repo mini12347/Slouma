@@ -23,5 +23,8 @@
   "license": "ISC",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "scripts": {
+  "build": "cd client && npm install && npm run build"
   }
 }
