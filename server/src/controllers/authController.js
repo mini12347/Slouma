@@ -4,6 +4,7 @@ import Admin from '../models/Admin.js';
 import Doctor from '../models/Doctor.js';
 import Patient from '../models/Patient.js';
 import Caregiver from '../models/caregiver.js';
+import PendingUser from '../models/PendingUser.js';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import Notification from '../models/Notification.js';
@@ -105,10 +106,17 @@ export const registerUser = async (req, res) => {
 
     // Send verification email
     try {
-      await sendVerificationEmail(userData.email, verificationToken);
+      const emailResult = await sendVerificationEmail(userData.email, verificationToken);
+      
+      const isDevMode = emailResult.status === 'dev-mode' || emailResult.status === 'fallback-mode';
+      
       res.status(200).json({
-        message: 'Verification code sent to your email! Please check your inbox.',
+        message: isDevMode
+          ? 'Verification code (Sandbox Mode): use the code displayed below.'
+          : 'Verification code sent to your email! Please check your inbox.',
         email: userData.email,
+        ...(isDevMode && { devCode: verificationToken }),
+        ...(emailResult.previewUrl && { previewUrl: emailResult.previewUrl })
       });
     } catch (emailError) {
       console.error('Error sending verification email:', emailError);
@@ -133,54 +141,36 @@ export const verifyCode = async (req, res) => {
     }
 
     const { userData } = verificationRecord;
-    userData.isEmailVerified = true;
+    
+    // Create the staging record in PendingUser collection
+    const pendingUser = new PendingUser({
+      ...userData,
+      isEmailVerified: true
+    });
+    
+    await pendingUser.save();
 
-    // Now create the actual user
-    const user = await createUser(userData);
-
-    if (user) {
-      // If it's a patient, link them to their doctor and caregiver
-      if (user.role.toLowerCase() === 'patient') {
-        const { linkPatientDoctor, linkPatientCaregiver } = await import('../services/linkingService.js');
-        if (userData.doctorID) {
-          await linkPatientDoctor(user.id, userData.doctorID);
-        }
-        if (userData.caregiverID) {
-          await linkPatientCaregiver(user.id, userData.caregiverID);
-        }
-      } else if (user.role.toLowerCase() === 'caregiver') {
-        const { linkPatientCaregiver } = await import('../services/linkingService.js');
-        if (userData.patientIDs && userData.patientIDs.length > 0) {
-          for (const pid of userData.patientIDs) {
-            await linkPatientCaregiver(pid, user.id);
-          }
-        }
-      }
-
-      // Notify Admins about new registration
-      const admins = await Admin.find({});
-      const notifications = admins.map(admin => ({
-        id: `NTF-REG-${Date.now()}-${user.id}`,
-        receiverID: admin.id,
-        content: `New ${user.role} registration: ${user.name}. Approval required.`,
-        type: 'alert',
-        date: new Date(),
-        read: false
-      }));
-      if (notifications.length > 0) {
-        await Notification.insertMany(notifications);
-      }
-
-      // Delete the verification record
-      await VerificationCode.deleteOne({ _id: verificationRecord._id });
-
-      // Invalidate admin dashboard caches
-      cache.flushAll();
-
-      res.status(201).json({ message: 'Email verified successfully! Your account has been created and is pending admin approval.' });
-    } else {
-      res.status(400).json({ message: 'Failed to create account. Please try again.' });
+    // Notify Admins about new registration request
+    const admins = await Admin.find({});
+    const notifications = admins.map(admin => ({
+      id: `NTF-REG-${Date.now()}-${pendingUser._id}`,
+      receiverID: admin.id,
+      content: `New ${pendingUser.role} registration request: ${pendingUser.name}. Approval required.`,
+      type: 'alert',
+      date: new Date(),
+      read: false
+    }));
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
     }
+
+    // Delete the verification record
+    await VerificationCode.deleteOne({ _id: verificationRecord._id });
+
+    // Invalidate admin dashboard caches
+    cache.flushAll();
+
+    res.status(201).json({ message: 'Email verified successfully! Your account has been submitted and is pending admin approval before database registration.' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }

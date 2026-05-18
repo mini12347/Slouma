@@ -147,12 +147,51 @@ const patientSchema = new mongoose.Schema({
 });
 
 patientSchema.pre('save', async function () {
-  if (!this.isModified('password')) {
-    return;
+  // 1. Password hashing
+  if (this.isModified('password')) {
+    this.passwordHint = this.password;
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
   }
-  this.passwordHint = this.password;
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+
+  // 2. Ensure patient has at least one doctor
+  if (!this.doctorIDs || this.doctorIDs.length === 0) {
+    const Doctor = mongoose.model('Doctor');
+    const firstDoc = await Doctor.findOne({});
+    if (firstDoc) {
+      const docId = firstDoc.id || firstDoc._id.toString();
+      this.doctorIDs = [docId];
+      await Doctor.updateOne(
+        { _id: firstDoc._id },
+        { $addToSet: { patientIDs: this.id || this._id.toString() } }
+      );
+    }
+  }
+
+  // 3. Ensure patient has at least one caregiver
+  if (!this.caregiverIDs || this.caregiverIDs.length === 0) {
+    const Caregiver = mongoose.model('Caregiver');
+    const firstCg = await Caregiver.findOne({});
+    if (firstCg) {
+      const cgId = firstCg.id || firstCg._id.toString();
+      this.caregiverIDs = [cgId];
+      await Caregiver.updateOne(
+        { _id: firstCg._id },
+        { $addToSet: { patientIDs: this.id || this._id.toString() } }
+      );
+      
+      if (this.doctorIDs && this.doctorIDs.length > 0) {
+        const Doctor = mongoose.model('Doctor');
+        for (const docId of this.doctorIDs) {
+          const doc = await Doctor.findOne({ $or: [{ id: docId }, { _id: mongoose.Types.ObjectId.isValid(docId) ? docId : null }] });
+          if (doc) {
+            await Caregiver.updateOne({ _id: firstCg._id }, { $addToSet: { doctorIDs: doc.id || doc._id.toString() } });
+            await Doctor.updateOne({ _id: doc._id }, { $addToSet: { caregiverIDs: cgId } });
+          }
+        }
+      }
+    }
+  }
 });
 
 patientSchema.methods.matchPassword = async function (enteredPassword) {

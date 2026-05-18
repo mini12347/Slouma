@@ -23,39 +23,36 @@ export const verifyPassword = async (user, password) => {
 
 export const createUser = async (userData) => {
   const { role, password, ...rest } = userData;
-  
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, salt);
 
   let user;
-  const dataWithHashedPassword = { ...rest, password: hashedPassword };
+  const dataWithPassword = { ...rest, password };
 
   switch (role.toLowerCase()) {
     case 'admin':
-      user = new Admin(dataWithHashedPassword);
+      user = new Admin(dataWithPassword);
       break;
     case 'doctor':
-      user = new Doctor(dataWithHashedPassword);
+      user = new Doctor(dataWithPassword);
       break;
     case 'patient':
-      if (!dataWithHashedPassword.lastname) dataWithHashedPassword.lastname = 'Patient';
-      if (!dataWithHashedPassword.phone) dataWithHashedPassword.phone = '00000000';
-      if (!dataWithHashedPassword.bloodGroup) dataWithHashedPassword.bloodGroup = 'O+';
-      if (!dataWithHashedPassword.dateOfBirth) dataWithHashedPassword.dateOfBirth = new Date();
+      if (!dataWithPassword.lastname) dataWithPassword.lastname = 'Patient';
+      if (!dataWithPassword.phone) dataWithPassword.phone = '00000000';
+      if (!dataWithPassword.bloodGroup) dataWithPassword.bloodGroup = 'O+';
+      if (!dataWithPassword.dateOfBirth) dataWithPassword.dateOfBirth = new Date();
       
-      if (dataWithHashedPassword.gender) {
-        const g = dataWithHashedPassword.gender.toLowerCase();
-        if (g === 'male' || g === 'homme') dataWithHashedPassword.gender = 'Male';
-        else if (g === 'female' || g === 'femme') dataWithHashedPassword.gender = 'Female';
-        else if (g === 'other' || g === 'autre') dataWithHashedPassword.gender = 'Other';
+      if (dataWithPassword.gender) {
+        const g = dataWithPassword.gender.toLowerCase();
+        if (g === 'male' || g === 'homme') dataWithPassword.gender = 'Male';
+        else if (g === 'female' || g === 'femme') dataWithPassword.gender = 'Female';
+        else if (g === 'other' || g === 'autre') dataWithPassword.gender = 'Other';
       } else {
-        dataWithHashedPassword.gender = 'Other';
+        dataWithPassword.gender = 'Other';
       }
       
-      user = new Patient(dataWithHashedPassword);
+      user = new Patient(dataWithPassword);
       break;
     case 'caregiver':
-      user = new Caregiver(dataWithHashedPassword);
+      user = new Caregiver(dataWithPassword);
       break;
     default:
       throw new Error('Invalid role');

@@ -1,22 +1,53 @@
 import nodemailer from 'nodemailer';
 
-let transporter = null;
+// Bypass self-signed certificate errors common in local development networks (antivirus/firewall proxy interceptions)
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-const createTransporter = () => {
+let transporter = null;
+let testAccount = null;
+
+const createTransporter = async () => {
   if (transporter) return transporter;
   
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS && 
-      process.env.EMAIL_USER !== 'your-gmail@gmail.com') {
+  const hasUser = process.env.EMAIL_USER && process.env.EMAIL_USER !== 'your-gmail@gmail.com';
+  const hasPass = process.env.EMAIL_PASS && process.env.EMAIL_PASS !== 'your-app-password';
+
+  if (hasUser && hasPass) {
     try {
+      // Use robust SMTP configuration for Gmail or custom SMTP
       transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.EMAIL_PORT || '465', 10),
+        secure: process.env.EMAIL_SECURE !== 'false', // true for 465, false for other ports
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS,
         },
+        tls: {
+          rejectUnauthorized: false // Bypasses certificate errors (e.g. self-signed certs behind firewalls/proxies)
+        }
       });
+      console.log('✅ Real SMTP transporter configured successfully for:', process.env.EMAIL_USER);
     } catch (error) {
-      console.log('Failed to create email transporter:', error.message);
+      console.error('❌ Failed to create real SMTP transporter:', error.message);
+    }
+  } else {
+    // Zero-config developer fallback using Ethereal Email Sandbox
+    try {
+      console.log('🔄 Creating automatic Ethereal SMTP test account...');
+      testAccount = await nodemailer.createTestAccount();
+      transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+      console.log('✉️ Created Ethereal Test Account:', testAccount.user);
+    } catch (error) {
+      console.error('❌ Failed to generate automatic Ethereal SMTP sandbox:', error.message);
     }
   }
   
@@ -24,23 +55,15 @@ const createTransporter = () => {
 };
 
 export const sendVerificationEmail = async (email, code) => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS || 
-      process.env.EMAIL_USER === 'your-gmail@gmail.com') {
-    console.log(`\n🔔 EMAIL VERIFICATION CODE FOR ${email}: ${code}\n`);
-    console.log('Email service not configured. Use the code above for verification.');
-    return Promise.resolve({ messageId: 'dev-mode' });
-  }
-
   try {
-    const mailTransporter = createTransporter();
+    const mailTransporter = await createTransporter();
     if (!mailTransporter) {
-      console.log(`\n🔔 EMAIL VERIFICATION CODE FOR ${email}: ${code}\n`);
-      console.log('Email transporter creation failed. Use the code above for verification.');
-      return Promise.resolve({ messageId: 'dev-mode' });
+      console.log(`\n🔔 [SANDBOX FALLBACK] EMAIL VERIFICATION CODE FOR ${email}: ${code}\n`);
+      return { status: 'dev-mode', code };
     }
 
     const mailOptions = {
-      from: `"Slouma Health" <${process.env.EMAIL_USER}>`,
+      from: `"Slouma Health" <${process.env.EMAIL_USER || 'no-reply@slouma-health.com'}>`,
       to: email,
       subject: 'Verification Code - Slouma Health',
       html: `
@@ -57,11 +80,20 @@ export const sendVerificationEmail = async (email, code) => {
       `,
     };
 
-    return await mailTransporter.sendMail(mailOptions);
+    const info = await mailTransporter.sendMail(mailOptions);
+
+    // If using ethereal, extract direct preview URL
+    if (mailTransporter.options.host === 'smtp.ethereal.email') {
+      const previewUrl = nodemailer.getTestMessageUrl(info);
+      console.log(`✉️ Ethereal Preview URL: ${previewUrl}`);
+      return { status: 'dev-mode', code, previewUrl };
+    }
+
+    console.log(`📧 Verification email successfully sent to ${email}. Message ID: ${info.messageId}`);
+    return { status: 'success', messageId: info.messageId };
   } catch (error) {
-    console.log(`\n🔔 EMAIL VERIFICATION CODE FOR ${email}: ${code}\n`);
-    console.log('Email sending failed. Use the code above for verification.');
-    console.log('Email error:', error.message);
-    return Promise.resolve({ messageId: 'fallback-mode' });
+    console.log(`\n🔔 [SANDBOX FALLBACK] EMAIL VERIFICATION CODE FOR ${email}: ${code}\n`);
+    console.error('Email error:', error.message);
+    return { status: 'fallback-mode', code, error: error.message };
   }
 };

@@ -3,6 +3,7 @@ import Admin from "../models/Admin.js";
 import Doctor from "../models/Doctor.js";
 import Patient from "../models/Patient.js";
 import Caregiver from "../models/caregiver.js";
+import PendingUser from "../models/PendingUser.js";
 import Notification from "../models/Notification.js";
 import Message from "../models/Message.js";
 import bcrypt from "bcryptjs";
@@ -239,13 +240,20 @@ const deleteUser = async (req, res) => {
     try {
         let deleted;
         const query = { $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] };
-        if (role === 'Patient') deleted = await Patient.findOneAndDelete(query);
-        else if (role === 'Doctor') deleted = await Doctor.findOneAndDelete(query);
-        else if (role === 'Caregiver') deleted = await Caregiver.findOneAndDelete(query);
-        else if (role === 'Admin') deleted = await Admin.findOneAndDelete(query);
-        else return res.status(400).json({ message: `Invalid role: ${role}` });
         
-        if (!deleted) return res.status(404).json({ message: 'User not found' });
+        // Try deleting from PendingUser staging first
+        deleted = await PendingUser.findOneAndDelete(query);
+        
+        if (!deleted) {
+            const normalizedRole = role?.toLowerCase().trim();
+            if (normalizedRole === 'patient') deleted = await Patient.findOneAndDelete(query);
+            else if (normalizedRole === 'doctor') deleted = await Doctor.findOneAndDelete(query);
+            else if (normalizedRole === 'caregiver') deleted = await Caregiver.findOneAndDelete(query);
+            else if (normalizedRole === 'admin') deleted = await Admin.findOneAndDelete(query);
+            else return res.status(400).json({ message: `Invalid role: ${role}` });
+        }
+        
+        if (!deleted) return res.status(404).json({ message: `${role || 'User'} not found` });
 
         const adminId = req.headers['x-admin-id'];
         if (adminId) {
@@ -271,16 +279,60 @@ const approveUser = async (req, res) => {
         const options = { new: true };
         
         let updated;
-        if (role === 'Patient') {
-            updated = await Patient.findOneAndUpdate(query, update, options);
-            if (updated && req.body.doctorID) {
-                const { linkPatientDoctor } = await import('../services/linkingService.js');
-                await linkPatientDoctor(updated.id, req.body.doctorID);
+        
+        // 1. Try to find the user in the PendingUser staging collection
+        const pendingUser = await PendingUser.findOne(query);
+        
+        if (pendingUser) {
+            // Convert to a plain object and set status to active
+            const userData = pendingUser.toObject();
+            userData.status = 'active';
+            
+            // Assign sequential / formatted ID
+            const prefix = userData.role === 'Patient' ? 'PAT' : userData.role === 'Caregiver' ? 'CG' : userData.role === 'Doctor' ? 'DOC' : 'ADM';
+            userData.id = `${prefix}${Date.now()}`;
+            
+            // Create user in the database (this will trigger their model hook to hash the password exactly once)
+            const { createUser } = await import('../services/userService.js');
+            updated = await createUser(userData);
+            
+            // Link patient to doctor and caregiver
+            if (userData.role === 'Patient') {
+                const { linkPatientDoctor, linkPatientCaregiver } = await import('../services/linkingService.js');
+                if (userData.doctorIDs && userData.doctorIDs.length > 0) {
+                    for (const docId of userData.doctorIDs) {
+                        await linkPatientDoctor(updated.id, docId);
+                    }
+                }
+                if (userData.caregiverIDs && userData.caregiverIDs.length > 0) {
+                    for (const cgId of userData.caregiverIDs) {
+                        await linkPatientCaregiver(updated.id, cgId);
+                    }
+                }
+            } else if (userData.role === 'Caregiver') {
+                const { linkPatientCaregiver } = await import('../services/linkingService.js');
+                if (userData.patientIDs && userData.patientIDs.length > 0) {
+                    for (const pid of userData.patientIDs) {
+                        await linkPatientCaregiver(pid, updated.id);
+                    }
+                }
             }
+            
+            // Clean up staging PendingUser record
+            await PendingUser.deleteOne({ _id: pendingUser._id });
+        } else {
+            // 2. Fallback: check if they are already created and just need their status updated
+            if (role === 'Patient') {
+                updated = await Patient.findOneAndUpdate(query, update, options);
+                if (updated && req.body.doctorID) {
+                    const { linkPatientDoctor } = await import('../services/linkingService.js');
+                    await linkPatientDoctor(updated.id, req.body.doctorID);
+                }
+            }
+            else if (role === 'Doctor') updated = await Doctor.findOneAndUpdate(query, update, options);
+            else if (role === 'Caregiver') updated = await Caregiver.findOneAndUpdate(query, update, options);
+            else if (role === 'Admin') updated = await Admin.findOneAndUpdate(query, update, options);
         }
-        else if (role === 'Doctor') updated = await Doctor.findOneAndUpdate(query, update, options);
-        else if (role === 'Caregiver') updated = await Caregiver.findOneAndUpdate(query, update, options);
-        else if (role === 'Admin') updated = await Admin.findOneAndUpdate(query, update, options);
         
         if (!updated) return res.status(404).json({ message: 'User not found' });
 
@@ -288,19 +340,29 @@ const approveUser = async (req, res) => {
         const approvalNotification = new Notification({
             id: `NTF-APPROVE-${Date.now()}-${updated.id}`,
             receiverID: updated.id,
-            content: `Congratulations! Your account as a ${role} has been approved by the administrator. You can now log in.`,
+            content: `Congratulations! Your account as a ${role || updated.role || 'user'} has been approved by the administrator. You can now log in.`,
             type: 'success',
             date: new Date(),
             read: false
         });
         await approvalNotification.save();
 
+        // Create Welcome Message
+        const welcomeMessage = new Message({
+            senderID: 'admin-system',
+            receiverID: updated._id,
+            message: `Hello ${updated.name}, welcome to our platform. We are glad to have you here.`,
+            date: new Date(),
+            time: new Date().toLocaleTimeString()
+        });
+        await welcomeMessage.save();
+
         // Invalidate cache and log activity
         const adminId = req.headers['x-admin-id'];
         if (adminId) {
             await Admin.findOneAndUpdate(
                 { $or: [{ _id: mongoose.Types.ObjectId.isValid(adminId) ? adminId : null }, { id: adminId }] },
-                { $push: { activityLog: { msg: `Approved ${role}: ${updated.name}`, user: 'Admin', date: new Date() } } }
+                { $push: { activityLog: { msg: `Approved and Added ${role || updated.role}: ${updated.name}`, user: 'Admin', date: new Date() } } }
             );
         }
 
@@ -345,14 +407,15 @@ const getAdminDashboard = async (req, res) => {
             return res.status(200).json(cachedData);
         }
 
-        const [currentAdmin, patients, doctors, caregivers, admins] = await Promise.all([
+        const [currentAdmin, patients, doctors, caregivers, admins, pendingUsers] = await Promise.all([
             mongoose.Types.ObjectId.isValid(adminId) 
                 ? Admin.findById(adminId).select('-image -password') 
                 : Admin.findOne({ id: adminId }).select('-image -password'),
             Patient.find({}).select('-image -password'),
             Doctor.find({}).select('-image -password'),
             Caregiver.find({}).select('-image -password'),
-            Admin.find({}).select('-image -password')
+            Admin.find({}).select('-image -password'),
+            PendingUser.find({}).select('-password')
         ]);
 
         const allUsers = [
@@ -411,6 +474,20 @@ const getAdminDashboard = async (req, res) => {
                     lastActive: a.lastActive || a.updatedAt, 
                     createdAt: a.createdAt 
                 }; 
+            }),
+            ...pendingUsers.map(u => {
+                const o = u.toObject();
+                return {
+                    ...o,
+                    id: o.id || o._id.toString(),
+                    _id: o._id,
+                    name: (u.name || '') + ' ' + (u.lastname || ''),
+                    role: u.role,
+                    status: 'pending',
+                    department: u.role === 'Doctor' ? (u.specialty || 'General') : 'N/A',
+                    lastActive: u.updatedAt,
+                    createdAt: u.createdAt
+                };
             }),
         ];
 

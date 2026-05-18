@@ -64,6 +64,8 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
   const [isVerifying, setIsVerifying] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [verificationError, setVerificationError] = useState('');
+  const [devOtpCode, setDevOtpCode] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
 
   const handleNext = (e) => {
     e.preventDefault();
@@ -124,6 +126,16 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
       
       const data = await response.json();
       if (response.ok) { 
+          if (data.devCode) {
+              setDevOtpCode(data.devCode);
+          } else {
+              setDevOtpCode('');
+          }
+          if (data.previewUrl) {
+              setPreviewUrl(data.previewUrl);
+          } else {
+              setPreviewUrl('');
+          }
           setIsVerifying(true); 
       } else { 
           setError(data.message || ta.signupError); 
@@ -173,6 +185,34 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
           </div>
           <h2 className="text-3xl font-black text-slate-800 text-center mb-3">{ta.verificationCode}</h2>
           <p className="text-slate-500 font-bold text-center mb-8">{ta.enterCode}</p>
+
+          {devOtpCode && (
+            <div className="mb-8 p-6 bg-teal-50/50 border border-teal-100/80 rounded-3xl text-center shadow-sm relative overflow-hidden animate-fade-in">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/5 rounded-full blur-xl" />
+              <span className="text-[10px] font-black text-teal-600 uppercase tracking-widest block mb-2 font-mono">
+                🔧 SANDBOX MODE ACTIVE
+              </span>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed mb-4">
+                Email service is not configured or failed to send. For testing/demo purposes, please use the following code:
+              </p>
+              <div className="flex flex-col items-center justify-center gap-3">
+                <span className="font-mono text-3xl font-black text-teal-600 bg-white border border-teal-200/60 rounded-2xl py-3 px-6 shadow-inner tracking-widest">
+                  {devOtpCode}
+                </span>
+
+                {previewUrl && (
+                  <a 
+                    href={previewUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 mt-2 px-5 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white rounded-2xl text-xs font-black shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
+                  >
+                    ✉️ View Sent Email Inbox
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleVerifyOTP} className="space-y-6">
             <div>

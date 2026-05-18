@@ -1,5 +1,34 @@
 import mongoose from "mongoose";
 import Notification from "../models/Notification.js";
+import Admin from "../models/Admin.js";
+import Doctor from "../models/Doctor.js";
+import Patient from "../models/Patient.js";
+import Caregiver from "../models/caregiver.js";
+
+const getUserIdentifiers = async (userId) => {
+    const ids = [userId];
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+        const models = [Admin, Doctor, Patient, Caregiver];
+        for (const model of models) {
+            const user = await model.findById(userId);
+            if (user && user.id) {
+                ids.push(user.id);
+                break;
+            }
+        }
+    } else {
+        const models = [Admin, Doctor, Patient, Caregiver];
+        for (const model of models) {
+            const user = await model.findOne({ id: userId });
+            if (user) {
+                ids.push(user._id.toString());
+                break;
+            }
+        }
+    }
+    return ids;
+};
+
 const createNotification = async (req, res) => {
     const notification = req.body;
     const newNotification = new Notification(notification);
@@ -67,7 +96,8 @@ const deleteNotification = async (req, res) => {
 const getUserNotifications = async (req, res) => {
     try {
         const { userId } = req.params;
-        const notifications = await Notification.find({ receiverID: userId }).sort({ date: -1 });
+        const userIds = await getUserIdentifiers(userId);
+        const notifications = await Notification.find({ receiverID: { $in: userIds } }).sort({ date: -1 });
 
         const mapped = notifications.map(n => ({
             id: n._id,
@@ -76,9 +106,7 @@ const getUserNotifications = async (req, res) => {
             time: n.date,
             type: n.type,
             read: n.read
-
         }));
-
 
         res.status(200).json(mapped);
     } catch (error) {
@@ -89,7 +117,8 @@ const getUserNotifications = async (req, res) => {
 const markAllAsRead = async (req, res) => {
     try {
         const { userId } = req.params;
-        await Notification.updateMany({ receiverID: userId, read: false }, { read: true });
+        const userIds = await getUserIdentifiers(userId);
+        await Notification.updateMany({ receiverID: { $in: userIds }, read: false }, { read: true });
         res.status(200).json({ message: 'Marked all as read' });
     } catch (error) {
         res.status(500).json({ message: error.message });

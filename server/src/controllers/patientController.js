@@ -109,13 +109,25 @@ export const deletePatient = async (req, res) => {
 
   try {
     console.log(`Attempting to delete patient with ID: ${id}`);
-    const deletedPatient = await Patient.findOneAndDelete({ 
+    
+    // 1. Try to delete from main Patient collection
+    let deletedPatient = await Patient.findOneAndDelete({ 
       $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] 
     });
+    
+    // 2. If not found in primary, fallback to PendingUser staging collection
+    if (!deletedPatient) {
+      const { default: PendingUser } = await import('../models/PendingUser.js');
+      deletedPatient = await PendingUser.findOneAndDelete({ 
+        $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] 
+      });
+    }
+
     if (!deletedPatient) {
       console.log(`Patient with ID ${id} not found for deletion`);
       return res.status(404).json({ message: 'Patient not found' });
     }
+    
     cache.flushAll();
     console.log(`Patient with ID ${id} deleted successfully`);
     res.status(200).json({ message: 'Patient deleted successfully' });
