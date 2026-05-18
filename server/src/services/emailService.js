@@ -56,6 +56,14 @@ const createTransporter = async () => {
 
 export const sendVerificationEmail = async (email, code) => {
   try {
+    const hasUser = process.env.EMAIL_USER && process.env.EMAIL_USER !== 'your-gmail@gmail.com';
+    const hasPass = process.env.EMAIL_PASS && process.env.EMAIL_PASS !== 'your-app-password';
+
+    if (!hasUser || !hasPass) {
+      console.log(`\n🔔 [SANDBOX FALLBACK] EMAIL VERIFICATION CODE FOR ${email}: ${code}\n`);
+      return { status: 'dev-mode', code };
+    }
+
     const mailTransporter = await createTransporter();
     if (!mailTransporter) {
       console.log(`\n🔔 [SANDBOX FALLBACK] EMAIL VERIFICATION CODE FOR ${email}: ${code}\n`);
