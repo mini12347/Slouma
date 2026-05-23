@@ -96,15 +96,13 @@ export const registerUser = async (req, res) => {
       ...extra
     };
 
-    await VerificationCode.findOneAndUpdate(
-      { email: email.toLowerCase() },
-      {
-        code: verificationToken,
-        userData,
-        createdAt: new Date(),
-      },
-      { upsert: true, new: true }
-    );
+    await VerificationCode.deleteOne({ email: email.toLowerCase() });
+    await VerificationCode.create({
+      email: email.toLowerCase(),
+      code: verificationToken,
+      userData,
+      createdAt: new Date(),
+    });
 
     try {
       const emailResult = await sendVerificationEmail(userData.email, verificationToken);
