@@ -215,7 +215,124 @@ const updateUser = async (req, res) => {
             if (userData[field] !== undefined) doc[field] = userData[field];
         });
 
-        const updated = await doc.save();
+        // Custom handling for Patient's doctor and caregiver sync
+        let updated;
+        if (normalizedRole === 'patient') {
+            const oldDoctorIDs = [...(doc.doctorIDs || [])];
+            const oldCaregiverIDs = [...(doc.caregiverIDs || [])];
+
+            const newDoctorIDs = userData.doctorIDs || [];
+            const newCaregiverIDs = userData.caregiverIDs || [];
+
+            if (userData.doctorIDs !== undefined) doc.doctorIDs = userData.doctorIDs;
+            if (userData.caregiverIDs !== undefined) doc.caregiverIDs = userData.caregiverIDs;
+
+            updated = await doc.save();
+
+            const patientId = updated.id || updated._id.toString();
+
+            // Doctor sync
+            const doctorsToRemove = oldDoctorIDs.filter(id => !newDoctorIDs.includes(id));
+            const doctorsToAdd = newDoctorIDs.filter(id => !oldDoctorIDs.includes(id));
+
+            if (doctorsToRemove.length > 0) {
+                const objectIdsToRemove = doctorsToRemove.filter(id => mongoose.Types.ObjectId.isValid(id));
+                const stringIdsToRemove = doctorsToRemove.filter(id => !mongoose.Types.ObjectId.isValid(id));
+                
+                const removeQuery = { $or: [] };
+                if (stringIdsToRemove.length > 0) removeQuery.$or.push({ id: { $in: stringIdsToRemove } });
+                if (objectIdsToRemove.length > 0) removeQuery.$or.push({ _id: { $in: objectIdsToRemove } });
+                if (removeQuery.$or.length === 0) removeQuery.$or = [{ id: { $in: doctorsToRemove } }];
+                
+                await Doctor.updateMany(removeQuery, { $pull: { patientIDs: patientId } });
+            }
+            if (doctorsToAdd.length > 0) {
+                const objectIdsToAdd = doctorsToAdd.filter(id => mongoose.Types.ObjectId.isValid(id));
+                const stringIdsToAdd = doctorsToAdd.filter(id => !mongoose.Types.ObjectId.isValid(id));
+                
+                const addQuery = { $or: [] };
+                if (stringIdsToAdd.length > 0) addQuery.$or.push({ id: { $in: stringIdsToAdd } });
+                if (objectIdsToAdd.length > 0) addQuery.$or.push({ _id: { $in: objectIdsToAdd } });
+                if (addQuery.$or.length === 0) addQuery.$or = [{ id: { $in: doctorsToAdd } }];
+                
+                await Doctor.updateMany(addQuery, { $addToSet: { patientIDs: patientId } });
+            }
+
+            // Caregiver sync
+            const caregiversToRemove = oldCaregiverIDs.filter(id => !newCaregiverIDs.includes(id));
+            const caregiversToAdd = newCaregiverIDs.filter(id => !oldCaregiverIDs.includes(id));
+
+            if (caregiversToRemove.length > 0) {
+                const objectIdsToRemove = caregiversToRemove.filter(id => mongoose.Types.ObjectId.isValid(id));
+                const stringIdsToRemove = caregiversToRemove.filter(id => !mongoose.Types.ObjectId.isValid(id));
+                
+                const removeQuery = { $or: [] };
+                if (stringIdsToRemove.length > 0) removeQuery.$or.push({ id: { $in: stringIdsToRemove } });
+                if (objectIdsToRemove.length > 0) removeQuery.$or.push({ _id: { $in: objectIdsToRemove } });
+                if (removeQuery.$or.length === 0) removeQuery.$or = [{ id: { $in: caregiversToRemove } }];
+                
+                await Caregiver.updateMany(removeQuery, { $pull: { patientIDs: patientId } });
+            }
+            if (caregiversToAdd.length > 0) {
+                const objectIdsToAdd = caregiversToAdd.filter(id => mongoose.Types.ObjectId.isValid(id));
+                const stringIdsToAdd = caregiversToAdd.filter(id => !mongoose.Types.ObjectId.isValid(id));
+                
+                const addQuery = { $or: [] };
+                if (stringIdsToAdd.length > 0) addQuery.$or.push({ id: { $in: stringIdsToAdd } });
+                if (objectIdsToAdd.length > 0) addQuery.$or.push({ _id: { $in: objectIdsToAdd } });
+                if (addQuery.$or.length === 0) addQuery.$or = [{ id: { $in: caregiversToAdd } }];
+                
+                await Caregiver.updateMany(addQuery, { $addToSet: { patientIDs: patientId } });
+
+                const { linkPatientCaregiver } = await import('../services/linkingService.js');
+                for (const cgId of caregiversToAdd) {
+                    await linkPatientCaregiver(patientId, cgId);
+                }
+            }
+        } else if (normalizedRole === 'caregiver') {
+            const oldPatientIDs = [...(doc.patientIDs || [])];
+            const newPatientIDs = userData.patientIDs || [];
+
+            if (userData.patientIDs !== undefined) doc.patientIDs = userData.patientIDs;
+
+            updated = await doc.save();
+
+            const caregiverId = updated.id || updated._id.toString();
+
+            // Patient sync
+            const patientsToRemove = oldPatientIDs.filter(id => !newPatientIDs.includes(id));
+            const patientsToAdd = newPatientIDs.filter(id => !oldPatientIDs.includes(id));
+
+            if (patientsToRemove.length > 0) {
+                const objectIdsToRemove = patientsToRemove.filter(id => mongoose.Types.ObjectId.isValid(id));
+                const stringIdsToRemove = patientsToRemove.filter(id => !mongoose.Types.ObjectId.isValid(id));
+                
+                const removeQuery = { $or: [] };
+                if (stringIdsToRemove.length > 0) removeQuery.$or.push({ id: { $in: stringIdsToRemove } });
+                if (objectIdsToRemove.length > 0) removeQuery.$or.push({ _id: { $in: objectIdsToRemove } });
+                if (removeQuery.$or.length === 0) removeQuery.$or = [{ id: { $in: patientsToRemove } }];
+                
+                await Patient.updateMany(removeQuery, { $pull: { caregiverIDs: caregiverId } });
+            }
+            if (patientsToAdd.length > 0) {
+                const objectIdsToAdd = patientsToAdd.filter(id => mongoose.Types.ObjectId.isValid(id));
+                const stringIdsToAdd = patientsToAdd.filter(id => !mongoose.Types.ObjectId.isValid(id));
+                
+                const addQuery = { $or: [] };
+                if (stringIdsToAdd.length > 0) addQuery.$or.push({ id: { $in: stringIdsToAdd } });
+                if (objectIdsToAdd.length > 0) addQuery.$or.push({ _id: { $in: objectIdsToAdd } });
+                if (addQuery.$or.length === 0) addQuery.$or = [{ id: { $in: patientsToAdd } }];
+                
+                await Patient.updateMany(addQuery, { $addToSet: { caregiverIDs: caregiverId } });
+
+                const { linkPatientCaregiver } = await import('../services/linkingService.js');
+                for (const pid of patientsToAdd) {
+                    await linkPatientCaregiver(pid, caregiverId);
+                }
+            }
+        } else {
+            updated = await doc.save();
+        }
 
         // Log activity
         const adminId = req.headers['x-admin-id'];
@@ -299,9 +416,17 @@ const approveUser = async (req, res) => {
             // Link patient to doctor and caregiver
             if (userData.role === 'Patient') {
                 const { linkPatientDoctor, linkPatientCaregiver } = await import('../services/linkingService.js');
+                let linkedDocs = new Set();
+                if (req.body.doctorID) {
+                    await linkPatientDoctor(updated.id, req.body.doctorID);
+                    linkedDocs.add(req.body.doctorID);
+                }
                 if (userData.doctorIDs && userData.doctorIDs.length > 0) {
                     for (const docId of userData.doctorIDs) {
-                        await linkPatientDoctor(updated.id, docId);
+                        if (!linkedDocs.has(docId)) {
+                            await linkPatientDoctor(updated.id, docId);
+                            linkedDocs.add(docId);
+                        }
                     }
                 }
                 if (userData.caregiverIDs && userData.caregiverIDs.length > 0) {
@@ -316,6 +441,12 @@ const approveUser = async (req, res) => {
                         await linkPatientCaregiver(pid, updated.id);
                     }
                 }
+                
+                // Also update the caregiver document to include patientIDs
+                await Caregiver.findOneAndUpdate(
+                    { $or: [{ _id: mongoose.Types.ObjectId.isValid(updated.id) ? updated.id : null }, { id: updated.id }] },
+                    { $set: { patientIDs: userData.patientIDs } }
+                );
             }
             
             // Clean up staging PendingUser record

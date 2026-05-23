@@ -5,8 +5,10 @@ import {
   UserPlus, CheckCircle2, ShieldCheck, HeartPulse, Stethoscope
 } from 'lucide-react';
 import { messagesService } from '../services/messagesService';
+import { translations } from './translations';
 
 export default function MessagesSection({ language, userRole = 'patient', currentUser }) {
+  const tc = (translations[language] || translations.fr).common;
   const [message, setMessage] = useState('');
   const [selectedContact, setSelectedContact] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -120,10 +122,10 @@ export default function MessagesSection({ language, userRole = 'patient', curren
   };
 
   const tRoles = {
-    patient: language === 'fr' ? 'Patient' : 'Patient',
-    doctor: language === 'fr' ? 'Médecin' : 'Doctor',
-    caregiver: language === 'fr' ? 'Aide-Soignant' : 'Caregiver',
-    admin: 'Admin'
+    patient: tc.roles?.patient || 'Patient',
+    doctor: tc.roles?.doctor || 'Doctor',
+    caregiver: tc.roles?.caregiver || 'Caregiver',
+    admin: tc.roles?.admin || 'Admin'
   };
 
   return (
@@ -139,14 +141,14 @@ export default function MessagesSection({ language, userRole = 'patient', curren
             </div>
           )}
           <div className="flex justify-between items-center mb-6">
-            <h3 className={`text-2xl font-black text-slate-900 ${isPatientUI ? 'tracking-tight' : ''}`}>Messages</h3>
+            <h3 className={`text-2xl font-black text-slate-900 ${isPatientUI ? 'tracking-tight' : ''}`}>{tc.messages || 'Messages'}</h3>
           </div>
           
           <div className="relative mb-6">
             <Search className={`absolute top-1/2 -translate-y-1/2 ${isRtl ? 'right-4' : 'left-4'} w-5 h-5 text-slate-400`} />
             <input 
               type="text" 
-              placeholder="Rechercher..."
+              placeholder={tc.searchContacts || "Rechercher..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`w-full bg-slate-100 border-2 border-transparent focus:border-teal-600 rounded-2xl py-3 ${isRtl ? 'pr-12 pl-4' : 'pl-12 pr-4'} font-bold text-slate-700 outline-none transition-all`}
@@ -158,7 +160,7 @@ export default function MessagesSection({ language, userRole = 'patient', curren
               onClick={() => setFilterType('all')}
               className={`px-4 py-1.5 rounded-full text-xs font-black transition-all border-2 whitespace-nowrap ${filterType === 'all' ? 'bg-teal-700 border-teal-700 text-white shadow-md' : 'bg-white border-slate-100 text-slate-500 hover:border-teal-300'}`}
             >
-              Tous
+              {tc.all || "Tous"}
             </button>
             {(() => {
               const roleMap = {
@@ -203,7 +205,7 @@ export default function MessagesSection({ language, userRole = 'patient', curren
                       {tRoles[contact.role]}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-500 font-bold mt-1.5 truncate">{contact.lastMsg || 'Aucun message'}</p>
+                  <p className="text-sm text-slate-500 font-bold mt-1.5 truncate">{contact.lastMsg || (tc.noMessages || 'Aucun message')}</p>
                 </div>
                 {contact.unread > 0 && (
                   <div className="w-6 h-6 bg-teal-600 text-white text-xs font-black rounded-full flex items-center justify-center shadow-lg">{contact.unread}</div>
@@ -215,9 +217,9 @@ export default function MessagesSection({ language, userRole = 'patient', curren
               <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
                 <User className="w-10 h-10 text-slate-400" />
               </div>
-              <p className="text-xl font-black text-slate-900 mb-2">Aucun contact</p>
+              <p className="text-xl font-black text-slate-900 mb-2">{tc.noContact || 'Aucun contact'}</p>
               <p className="text-sm font-bold text-slate-500">
-                {searchQuery ? "Aucun résultat trouvé" : "Vous n'avez pas encore de contacts disponibles."}
+                {searchQuery ? (tc.noResult || "Aucun résultat trouvé") : (tc.noContactsAvailable || "Vous n'avez pas encore de contacts disponibles.")}
               </p>
             </div>
           )}
@@ -284,7 +286,7 @@ export default function MessagesSection({ language, userRole = 'patient', curren
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Écrivez votre message..."
+                  placeholder={tc.typeMessage || "Écrivez votre message..."}
                   className="flex-1 bg-transparent py-3 px-2 font-bold text-slate-700 outline-none"
                 />
                 <button className="p-3 text-slate-400 hover:text-teal-700 transition-all">
@@ -304,8 +306,8 @@ export default function MessagesSection({ language, userRole = 'patient', curren
             <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center mb-8 shadow-xl border-4 border-teal-50">
               <MessageCircle className="w-16 h-16 text-teal-700 opacity-20" />
             </div>
-            <h2 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Sélectionnez une conversation</h2>
-            <p className="text-xl font-bold text-slate-500 max-w-md">Choisissez un contact dans la liste à gauche pour commencer à discuter.</p>
+            <h2 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">{tc.selectConversation || 'Sélectionnez une conversation'}</h2>
+            <p className="text-xl font-bold text-slate-500 max-w-md">{tc.selectConversationDesc || 'Choisissez un contact dans la liste à gauche pour commencer à discuter.'}</p>
           </div>
         )}
       </div>
@@ -317,7 +319,7 @@ export default function MessagesSection({ language, userRole = 'patient', curren
           </div>
           <h2 className="text-4xl font-black text-white mb-2">{activeCall.contact.name}</h2>
           <p className="text-teal-400 text-xl font-bold uppercase tracking-widest mb-12">
-            Appel {activeCall.type === 'video' ? 'Vidéo' : 'Audio'} en cours...
+            {activeCall.type === 'video' ? (tc.videoCallInProgress || 'Appel Vidéo en cours...') : (tc.audioCallInProgress || 'Appel Audio en cours...')}
           </p>
           <div className="flex gap-8">
             <button className="w-20 h-20 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-xl hover:bg-slate-700 transition-all active:scale-90">

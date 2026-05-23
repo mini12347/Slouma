@@ -5,13 +5,14 @@ import {
   Heart, LogOut, Phone, Users, Bot, AlertTriangle, Activity,
   Droplets, Thermometer, Pill, CheckCircle2, CalendarDays,
   ChevronRight, Clock, Menu, Home, FileText, Settings, Bell,
-  Globe, Download, Search, PlusCircle, Volume2, Video, XCircle, MessageCircle
+  Globe, Download, Search, PlusCircle, Volume2, Video, XCircle, MessageCircle, Film
 } from 'lucide-react';
 import EmergencyModal from '../../shared/EmergencyModal';
 import VoiceAssistantModal from '../../shared/VoiceAssistantModal';
 import SettingsModal from '../../shared/SettingsModal';
 import NotificationsPanel from '../../shared/NotificationsPanel';
 import MessagesSection from '../../shared/MessagesSection';
+import VideosSection from '../../shared/VideosSection';
 import { patientService } from '../../services/patientService';
 import { translations } from '../../shared/translations';
 
@@ -500,6 +501,7 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
             { id: 'emergency', icon: AlertTriangle, label: tp.emergencyContacts || 'Urgence', color: 'text-red-700', active: 'bg-red-700 text-white' },
             { id: 'prescriptions', icon: FileText, label: language === 'fr' ? 'Ordonnances' : language === 'ar' || language === 'tn' ? 'وصفات طبية' : 'Prescriptions', color: 'text-teal-700', active: 'bg-teal-700 text-white' },
             { id: 'messages', icon: MessageCircle, label: tc.messages, color: 'text-teal-700', active: 'bg-teal-700 text-white' },
+            { id: 'videos', icon: Film, label: language === 'fr' ? 'Vidéos' : language === 'ar' || language === 'tn' ? 'فيديوهات' : 'Videos', color: 'text-teal-700', active: 'bg-teal-700 text-white' },
           ].map((item) => (
             <button
               key={item.id}
@@ -551,7 +553,8 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
                 home: tp.dashboard,
                 emergency: tp.emergencyContacts,
                 prescriptions: language === 'fr' ? 'Ordonnances' : language === 'ar' || language === 'tn' ? 'وصفات طبية' : 'Prescriptions',
-                messages: tc.messages
+                messages: tc.messages,
+                videos: language === 'fr' ? 'Vidéos' : language === 'ar' || language === 'tn' ? 'فيديوهات' : 'Videos'
               }[activeTab]}
             </h2>
           </div>
@@ -744,6 +747,7 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
             )}
 
             {activeTab === 'prescriptions' && <PatientPrescriptions />}
+            {activeTab === 'videos' && <VideosSection language={language} userRole="patient" />}
             {activeTab === 'messages' && (
               <MessagesSection 
                 language={language} 

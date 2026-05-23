@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Activity, Bell, Calendar, FileText, Heart, Menu, Pill, Users, LogOut, Droplet,
   TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, Phone, Video,
-  ChevronRight, MoreVertical, Camera, MessageSquare, ShieldAlert, Globe, Settings, MapPin, Plus, XCircle, Loader2
+  ChevronRight, MoreVertical, Camera, MessageSquare, ShieldAlert, Globe, Settings, MapPin, Plus, XCircle, Loader2, Film
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
@@ -10,6 +10,7 @@ import {
 import SettingsModal from '../../shared/SettingsModal';
 import NotificationsPanel from '../../shared/NotificationsPanel';
 import MessagesSection from '../../shared/MessagesSection';
+import VideosSection from '../../shared/VideosSection';
 import { translations } from '../../shared/translations';
 import { caregiverService } from '../../services/caregiverService';
 import { patientService } from '../../services/patientService';
@@ -204,6 +205,14 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
     fetchDashboardData();
   }, [caregiverData]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchDashboardData();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [caregiverData]);
+
   const toggleTask = async (taskId, currentStatus) => {
     const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
     try {
@@ -330,6 +339,7 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
   const tr = translations[language] || translations.fr;
   const tg = tr.caregiver;
   const tc = tr.common;
+  const ta = tr.auth;
 
   const getTaskIcon = (type) => {
     switch(type) {
@@ -352,7 +362,7 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
     );
   }
 
-  const activePatient = patientsList[0] || { name: 'No Patient Assigned', lastname: '', age: '-', bloodGroup: '-', currentConditions: [] };
+  const activePatient = patientsList[0] || { name: ta.noPatientAssigned || 'No Patient Assigned', lastname: '', age: '-', bloodGroup: '-', currentConditions: [] };
 
   const CaregiverOverview = () => (
     <div className="space-y-6">
@@ -719,6 +729,7 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
             { id: 'prescriptions', icon: FileText, label: language === 'fr' ? 'Ordonnances' : language === 'ar' || language === 'tn' ? 'وصفات طبية' : 'Prescriptions' },
             { id: 'appointments', icon: Calendar, label: tg.appointments },
             { id: 'messages', icon: MessageSquare, label: tc.messages },
+            { id: 'videos', icon: Film, label: language === 'fr' ? 'Vidéos' : language === 'ar' || language === 'tn' ? 'فيديوهات' : 'Videos' },
 
           ].map((tab) => {
             const isActive = activeTab === tab.id;
@@ -774,6 +785,7 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
                 prescriptions: language === 'fr' ? 'Ordonnances' : language === 'ar' || language === 'tn' ? 'وصفات طبية' : 'Prescriptions',
                 appointments: tg.appointments,
                 messages: tc.messages,
+                videos: language === 'fr' ? 'Vidéos' : language === 'ar' || language === 'tn' ? 'فيديوهات' : 'Videos'
 
               }[activeTab]}
             </h2>
@@ -874,6 +886,7 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
               </div>
             )}
             {activeTab === 'appointments' && <CaregiverAppointments />}
+            {activeTab === 'videos' && <VideosSection language={language} userRole="caregiver" />}
 
             {activeTab === 'messages' && (
               <MessagesSection 

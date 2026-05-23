@@ -73,7 +73,12 @@ export default function NotificationsPanel({ isOpen, onClose, language, userId, 
   const handleMarkAllRead = async () => {
     if (!userId) return;
     try {
-      if (notifications.some(n => n._id.startsWith('MOCK'))) {
+      const hasMocks = notifications.some(n => {
+        const idStr = String(n._id || n.id || '');
+        return idStr.startsWith('MOCK');
+      });
+      
+      if (hasMocks) {
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       } else {
         await notificationService.markAllAsRead(userId);

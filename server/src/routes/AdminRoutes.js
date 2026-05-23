@@ -1,5 +1,5 @@
 import { 
-    createAdmin, getAdmins, getAdminById, updateAdmin, deleteAdmin, verifyAdminPassword,
+    createAdmin, getAdmins, getAdminById, updateAdmin, deleteAdmin, 
     getAdminDashboard, createUser, deleteUser, updateUser, approveUser, generateReport,
     broadcastNotification, broadcastMessage
 } from "../controllers/AdminController.js";
@@ -18,9 +18,7 @@ routerA.post('/broadcast-message', broadcastMessage);
 
 routerA.post('/', createAdmin);
 routerA.get('/', getAdmins);
-routerA.get('/dashboard/:id', getAdminDashboard);
-routerA.post('/verify-password', verifyAdminPassword);
-
+routerA.get('/dashboard/:id', getAdminDashboard); 
 routerA.get('/:id', getAdminById);
 routerA.put('/:id', updateAdmin);
 routerA.delete('/:id', deleteAdmin);

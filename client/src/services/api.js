@@ -4,10 +4,14 @@ const API_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const fetchWithAuth = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
   const headers = {
-    'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),
     ...options.headers,
   };
+
+  // Set default Content-Type to JSON only if it's not a FormData and not already set
+  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
@@ -24,7 +28,21 @@ const fetchWithAuth = async (endpoint, options = {}) => {
 
 export default {
   get: (endpoint) => fetchWithAuth(endpoint),
-  post: (endpoint, data, options = {}) => fetchWithAuth(endpoint, { ...options, method: 'POST', body: JSON.stringify(data) }),
-  put: (endpoint, data, options = {}) => fetchWithAuth(endpoint, { ...options, method: 'PUT', body: JSON.stringify(data) }),
+  post: (endpoint, data, options = {}) => {
+    const isFormData = data instanceof FormData;
+    return fetchWithAuth(endpoint, {
+      ...options,
+      method: 'POST',
+      body: isFormData ? data : JSON.stringify(data)
+    });
+  },
+  put: (endpoint, data, options = {}) => {
+    const isFormData = data instanceof FormData;
+    return fetchWithAuth(endpoint, {
+      ...options,
+      method: 'PUT',
+      body: isFormData ? data : JSON.stringify(data)
+    });
+  },
   delete: (endpoint, options = {}) => fetchWithAuth(endpoint, { ...options, method: 'DELETE' }),
 };

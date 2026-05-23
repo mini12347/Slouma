@@ -3,7 +3,7 @@ import {
   Building2, Users, FileText, Settings, LogOut, CheckCircle, 
   XCircle, Clock, Search, Filter, AlertCircle, TrendingUp, MoreVertical, 
   ChevronRight, ArrowRight, UserPlus, Download, Bell, Plus, Menu, Globe, Activity, MessageSquare,
-  Stethoscope, HeartPulse, Eye, EyeOff
+  Stethoscope, HeartPulse, Eye, EyeOff, Film
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -12,6 +12,7 @@ import {
 import SettingsModal from '../../shared/SettingsModal';
 import NotificationsPanel from '../../shared/NotificationsPanel';
 import MessagesSection from '../../shared/MessagesSection';
+import AdminVideosSection from '../../shared/AdminVideosSection';
 import { translations } from '../../shared/translations';
 
 import { adminService } from '../../services/adminService';
@@ -78,6 +79,8 @@ function AdminUsers({ admin, language, onAddUser, users, onDeleteUser, onApprove
   const [search, setSearch] = useState('');
   const [activeSubTab, setActiveSubTab] = useState('all');
   const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [approvingPatient, setApprovingPatient] = useState(null);
+  const [selectedDoctorForApproval, setSelectedDoctorForApproval] = useState('');
   const isRtl = language === 'tn' || language === 'ar';
   const ta = (translations[language] || translations.en).admin;
   const tc = (translations[language] || translations.en).common;
@@ -215,12 +218,7 @@ function AdminUsers({ admin, language, onAddUser, users, onDeleteUser, onApprove
                       <button 
                         onClick={() => {
                           if (user.role === 'Patient') {
-                            const availableDoctors = users
-                              .filter(u => u.role === 'Doctor')
-                              .map(d => `Dr. ${d.name} ${d.lastname && d.lastname !== 'Utilisateur' ? d.lastname : ''} (ID: ${d.id || d._id})`)
-                              .join('\n');
-                            const docId = prompt(`Enter Doctor ID to link this patient to:\n\nAvailable Doctors:\n${availableDoctors}`);
-                            if (docId) onApproveUser(user.id || user._id, user.role, docId);
+                            setApprovingPatient(user);
                           } else {
                             onApproveUser(user.id || user._id, user.role);
                           }
@@ -257,6 +255,46 @@ function AdminUsers({ admin, language, onAddUser, users, onDeleteUser, onApprove
           </table>
         </div>
       </div>
+
+      {approvingPatient && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white rounded-3xl p-8 max-w-xl w-full shadow-2xl border border-slate-100">
+            <h3 className="text-2xl font-black text-slate-800 mb-8">{ta.approve || 'Approve'} {approvingPatient.name}</h3>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{ta.assignDoctor || 'Assign Doctor'}</label>
+                <select 
+                  value={selectedDoctorForApproval} 
+                  onChange={(e) => setSelectedDoctorForApproval(e.target.value)} 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:border-teal-600 outline-none font-bold" 
+                >
+                  <option value="">{ta.selectDoctor || '-- Select a Doctor --'}</option>
+                  {(users || []).filter(u => u.role === 'Doctor').map(doc => (
+                    <option key={doc.id || doc._id} value={doc.id || doc._id}>
+                      Dr. {doc.name} {doc.lastname && doc.lastname !== 'Utilisateur' ? doc.lastname : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-4 pt-4">
+                <button type="button" onClick={() => { setApprovingPatient(null); setSelectedDoctorForApproval(''); }} className="px-6 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-colors">{tc.cancel || 'Cancel'}</button>
+                <button 
+                  type="button" 
+                  disabled={!selectedDoctorForApproval}
+                  onClick={() => {
+                    onApproveUser(approvingPatient.id || approvingPatient._id, approvingPatient.role, selectedDoctorForApproval);
+                    setApprovingPatient(null);
+                    setSelectedDoctorForApproval('');
+                  }} 
+                  className="px-8 py-4 bg-teal-600 text-white font-black rounded-2xl shadow-lg shadow-teal-600/25 disabled:opacity-50 hover:bg-teal-700 transition-colors"
+                >
+                  {ta.approveAndAssign || 'Approve & Assign'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -392,6 +430,11 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
   const [newPatientCondition, setNewPatientCondition] = useState('Heart Disease');
   const [newPatientDoctor, setNewPatientDoctor] = useState('');
   const [newCaregiverPatient, setNewCaregiverPatient] = useState('');
+
+  const [editPatientCondition, setEditPatientCondition] = useState('General');
+  const [editPatientDoctor, setEditPatientDoctor] = useState('');
+  const [editPatientCaregiver, setEditPatientCaregiver] = useState('');
+  const [editCaregiverPatient, setEditCaregiverPatient] = useState('');
 
   const generatedId = newUserRole === 'Doctor' 
     ? `${SPECIALTY_CODES[newDoctorSpecialty] || 'GEN'}-${CONDITION_CODES[newDoctorCondition] || 'GEN'}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 900 + 100)}`
@@ -596,6 +639,20 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
     const rawName = parts[0] || '';
     const rawLastname = parts.slice(1).join(' ') || user.lastname || '';
     setEditingUser({ ...user, _rawName: rawName, _rawLastname: rawLastname });
+
+    // Initialize editing states if role is Patient
+    if (user.role === 'Patient') {
+      const condition = user.currentConditions?.[0] || 'General';
+      setEditPatientCondition(condition);
+      setEditPatientDoctor(user.doctorIDs?.[0] || '');
+      setEditPatientCaregiver(user.caregiverIDs?.[0] || '');
+    }
+
+    // Initialize editing states if role is Caregiver
+    if (user.role === 'Caregiver') {
+      setEditCaregiverPatient(user.patientIDs?.[0] || '');
+    }
+
     setFormError('');
     setShowEditUserModal(true);
   };
@@ -618,13 +675,11 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
       userData.bloodGroup = formData.get('bloodGroup');
       userData.dateOfBirth = formData.get('dateOfBirth');
       userData.gender = formData.get('gender');
+      userData.currentConditions = [editPatientCondition];
+      userData.doctorIDs = editPatientDoctor ? [editPatientDoctor] : [];
+      userData.caregiverIDs = editPatientCaregiver ? [editPatientCaregiver] : [];
     } else if (editingUser.role === 'Caregiver') {
-      const pId = formData.get('patientIDs');
-      if (pId) {
-        userData.patientIDs = [pId];
-      } else {
-        userData.patientIDs = [];
-      }
+      userData.patientIDs = editCaregiverPatient ? [editCaregiverPatient] : [];
     }
     
     Object.keys(userData).forEach(key => {
@@ -698,6 +753,7 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
             { id: 'users', icon: Users, label: ta.users },
             { id: 'reports', icon: FileText, label: ta.reports },
             { id: 'messages', icon: MessageSquare, label: ta.messages },
+            { id: 'videos', icon: Film, label: 'Videos' },
             { id: 'analytics', icon: TrendingUp, label: ta.analytics },
           ].map((item) => (
             <button
@@ -752,6 +808,7 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
                 users: ta.users,
                 reports: ta.reports,
                 messages: ta.messages,
+                videos: 'Videos',
                 analytics: ta.analytics
               }[activeTab]}
             </h2>
@@ -879,6 +936,7 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
               />
             )}
             {activeTab === 'analytics' && <AdminAnalytics language={language} statsData={rawStats} />}
+            {activeTab === 'videos' && <AdminVideosSection language={language} />}
             {activeTab === 'messages' && (
               <MessagesSection 
                 language={language} 
@@ -1013,7 +1071,7 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
                     >
                       <option value="">-- Select a Doctor --</option>
                       {usersList
-                        .filter(u => u.role === 'Doctor' && u.specialty === CONDITION_TO_SPECIALTY[newPatientCondition])
+                        .filter(u => u.role === 'Doctor' && (!newPatientCondition || !CONDITION_TO_SPECIALTY[newPatientCondition] || u.specialty === CONDITION_TO_SPECIALTY[newPatientCondition]))
                         .map(doc => (
                           <option key={doc.id || doc._id} value={doc.id || doc._id}>
                             Dr. {doc.name} {doc.lastname && doc.lastname !== 'Utilisateur' ? doc.lastname : ''}
@@ -1157,6 +1215,53 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
                        <option value="Other">Other</option>
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Condition</label>
+                    <select 
+                      value={editPatientCondition}
+                      onChange={(e) => {
+                        setEditPatientCondition(e.target.value);
+                        setEditPatientDoctor('');
+                      }}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:border-teal-600 outline-none font-bold"
+                    >
+                      {Object.keys(CONDITION_CODES).map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assign Doctor</label>
+                    <select 
+                      value={editPatientDoctor}
+                      onChange={(e) => setEditPatientDoctor(e.target.value)}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:border-teal-600 outline-none font-bold"
+                    >
+                      <option value="">-- Select a Doctor --</option>
+                      {usersList
+                        .filter(u => u.role === 'Doctor' && (!editPatientCondition || !CONDITION_TO_SPECIALTY[editPatientCondition] || u.specialty === CONDITION_TO_SPECIALTY[editPatientCondition]))
+                        .map(doc => (
+                          <option key={doc.id || doc._id} value={doc.id || doc._id}>
+                            Dr. {doc.name} {doc.lastname && doc.lastname !== 'Utilisateur' ? doc.lastname : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assign Caregiver</label>
+                    <select 
+                      value={editPatientCaregiver}
+                      onChange={(e) => setEditPatientCaregiver(e.target.value)}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:border-teal-600 outline-none font-bold"
+                    >
+                      <option value="">-- Select a Caregiver --</option>
+                      {usersList
+                        .filter(u => u.role === 'Caregiver')
+                        .map(cg => (
+                          <option key={cg.id || cg._id} value={cg.id || cg._id}>
+                            {cg.name} {cg.lastname && cg.lastname !== 'Utilisateur' ? cg.lastname : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                 </div>
               )}
 
@@ -1165,8 +1270,8 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
                   <div>
                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assign Patient</label>
                     <select 
-                      name="patientIDs"
-                      defaultValue={editingUser.patientIDs?.[0] || ''}
+                      value={editCaregiverPatient}
+                      onChange={(e) => setEditCaregiverPatient(e.target.value)}
                       className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:border-teal-600 outline-none font-bold shadow-inner"
                     >
                       <option value="">-- Select a Patient --</option>

@@ -18,6 +18,7 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import activityRoutes from './routes/ActivityRoutes.js';
 import reportRoutes from './routes/ReportRoutes.js';
 import linkingRoutes from './routes/LinkingRoutes.js';
+import videoRoutes from './routes/VideoRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,8 +47,11 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/links', linkingRoutes);
+app.use('/api/videos', videoRoutes);
+
 
 app.use(express.static(path.join(__dirname, '../../client/dist')));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, '../../client/dist', 'index.html'));
