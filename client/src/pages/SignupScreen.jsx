@@ -3,8 +3,6 @@ import { Globe, Lock, Mail, Loader, Shield, Activity, Users, ArrowLeft, Eye, Eye
 import SloumaLogo from '../shared/SloumaLogo';
 import { translations } from '../shared/translations';
 
-
-
 const CustomSelect = ({ value, onChange, options, icon: Icon, className, dropdownClass }) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const dropdownRef = React.useRef(null);
@@ -21,8 +19,8 @@ const CustomSelect = ({ value, onChange, options, icon: Icon, className, dropdow
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
-      <div 
-        onClick={() => setIsOpen(!isOpen)} 
+      <div
+        onClick={() => setIsOpen(!isOpen)}
         className="w-full h-full flex items-center justify-between cursor-pointer outline-none"
       >
         <div className="flex items-center gap-2 flex-1">
@@ -31,13 +29,13 @@ const CustomSelect = ({ value, onChange, options, icon: Icon, className, dropdow
         </div>
         <ChevronDown className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180 text-teal-500' : 'text-slate-400'}`} />
       </div>
-      
+
       {isOpen && (
         <div className={`absolute top-[calc(100%+8px)] left-0 right-0 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50 ${dropdownClass || ''}`}>
           <div className="max-h-60 overflow-y-auto py-2">
             {options.map((opt) => (
-              <div 
-                key={opt.value} 
+              <div
+                key={opt.value}
                 onClick={() => { onChange(opt.value); setIsOpen(false); }}
                 className={`px-5 py-3 cursor-pointer transition-colors flex items-center justify-between hover:bg-teal-50 hover:text-teal-700 ${value === opt.value ? 'bg-teal-50/50 text-teal-700 font-black' : 'text-slate-600 font-bold'}`}
               >
@@ -55,13 +53,13 @@ const CustomSelect = ({ value, onChange, options, icon: Icon, className, dropdow
 export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoToLanding }) {
   const [step, setStep] = useState(1);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
-  
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('patient');
-  
+
   const [lastname, setLastname] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -88,7 +86,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
       try {
         const isProduction = window.location.hostname !== 'localhost';
         const baseUrl = isProduction ? '/api' : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api');
-        
+
         const [docRes, patRes, cgRes] = await Promise.all([
           fetch(`${baseUrl}/doctors`),
           fetch(`${baseUrl}/patients`),
@@ -139,9 +137,9 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
     e.preventDefault();
     if (name.trim().length < 2) { setError("First name must be at least 2 characters long."); return; }
     if (password !== confirmPassword) { setError(ta.passwordMismatch); return; }
-    if (!validatePassword(password)) { 
-      setError("Password does not meet the security requirements."); 
-      return; 
+    if (!validatePassword(password)) {
+      setError("Password does not meet the security requirements.");
+      return;
     }
     setError('');
     setStep(2);
@@ -150,7 +148,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
   const handleSignup = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (lastname.trim().length < 2) { setError("Last name must be at least 2 characters long."); return; }
     if (!/^(2|4|5|7|9)[0-9]{7}$/.test(phone)) {
       setError("Please enter a valid Tunisian phone number (8 digits, starting with 2, 4, 5, 7, or 9).");
@@ -174,22 +172,22 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
       }
       const primaryCondition = selectedConditions[0] || 'heartDisease';
       const specialists = doctorsList.filter(d => {
-          const conditionMapping = {
-            'heartDisease': 'Cardiology',
-            'diabetes': 'Endocrinology',
-            'hypertension': 'Cardiology',
-            'Alzheimer': 'Neurology',
-            'other': 'General Medicine'
-          };
-          const targetSpecialty = conditionMapping[primaryCondition] || 'General Medicine';
-          return d.department === targetSpecialty || d.specialty === targetSpecialty;
+        const conditionMapping = {
+          'heartDisease': 'Cardiology',
+          'diabetes': 'Endocrinology',
+          'hypertension': 'Cardiology',
+          'Alzheimer': 'Neurology',
+          'other': 'General Medicine'
+        };
+        const targetSpecialty = conditionMapping[primaryCondition] || 'General Medicine';
+        return d.department === targetSpecialty || d.specialty === targetSpecialty;
       });
       if (specialists.length === 0 && doctorsList.length > 0) {
-          assignedDoc = doctorsList[0];
+        assignedDoc = doctorsList[0];
       } else if (specialists.length > 0) {
-          assignedDoc = specialists.reduce((min, doc) => ((doc.patients?.length || 0) < (min.patients?.length || 0) ? doc : min), specialists[0]);
+        assignedDoc = specialists.reduce((min, doc) => ((doc.patients?.length || 0) < (min.patients?.length || 0) ? doc : min), specialists[0]);
       } else {
-          setError(ta.noSpecialist); return;
+        setError(ta.noSpecialist); return;
       }
       setAssignedDoctor(assignedDoc);
     } else if (role === 'caregiver') {
@@ -200,7 +198,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
     try {
       const isProduction = window.location.hostname !== 'localhost';
       const baseUrl = isProduction ? '/api' : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api');
-      
+
       const signupData = {
         name,
         lastname,
@@ -210,43 +208,35 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
         phone,
         address,
         id: role === 'patient' ? `PAT${Date.now()}` : `CG${Date.now()}`,
-        ...(role === 'patient' && { 
-            doctorIDs: assignedDoc ? [assignedDoc.id || assignedDoc._id] : [], 
-            currentConditions: selectedConditions, 
-            bloodGroup, 
-            dateOfBirth, 
-            gender,
-            caregiverIDs: caregiverId ? [caregiverId] : []
+        ...(role === 'patient' && {
+          doctorIDs: assignedDoc ? [assignedDoc.id || assignedDoc._id] : [],
+          currentConditions: selectedConditions,
+          bloodGroup,
+          dateOfBirth,
+          gender,
+          caregiverIDs: caregiverId ? [caregiverId] : []
         }),
         ...(role === 'caregiver' && { patientIDs: [patientId] }),
       };
 
-      const response = await fetch(`${baseUrl}/auth/register`, { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify(signupData) 
+      const response = await fetch(`${baseUrl}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(signupData)
       });
-      
+
       const data = await response.json();
-      if (response.ok) { 
-          if (data.devCode) {
-              setDevOtpCode(data.devCode);
-          } else {
-              setDevOtpCode('');
-          }
-          if (data.previewUrl) {
-              setPreviewUrl(data.previewUrl);
-          } else {
-              setPreviewUrl('');
-          }
-          setIsVerifying(true); 
-      } else { 
-          setError(data.message || ta.signupError); 
+      if (response.ok) {
+        setDevOtpCode(data.devCode || '');
+        setPreviewUrl(data.previewUrl || '');
+        setIsVerifying(true);
+      } else {
+        setError(data.message || ta.signupError);
       }
-    } catch { 
-        setError(ta.signupError); 
-    } finally { 
-        setLoading(false); 
+    } catch {
+      setError(ta.signupError);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -302,11 +292,10 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                 <span className="font-mono text-3xl font-black text-teal-600 bg-white border border-teal-200/60 rounded-2xl py-3 px-6 shadow-inner tracking-widest">
                   {devOtpCode}
                 </span>
-
                 {previewUrl && (
-                  <a 
-                    href={previewUrl} 
-                    target="_blank" 
+                  <a
+                    href={previewUrl}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 mt-2 px-5 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white rounded-2xl text-xs font-black shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
                   >
@@ -319,9 +308,9 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
 
           <form onSubmit={handleVerifyOTP} className="space-y-6">
             <div>
-              <input 
-                type="text" 
-                value={otpCode} 
+              <input
+                type="text"
+                value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 className="w-full text-center text-4xl font-black tracking-[1rem] py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:bg-white focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all text-teal-600 placeholder:text-slate-200"
                 placeholder="000000"
@@ -333,8 +322,8 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
               <p className="text-rose-500 text-center text-sm font-bold animate-shake">{verificationError}</p>
             )}
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading || otpCode.length < 6}
               className="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-2xl py-4 font-black text-lg shadow-lg shadow-teal-500/30 hover:shadow-teal-500/40 hover:-translate-y-0.5 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
             >
@@ -342,8 +331,8 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
             </button>
 
             <div className="text-center">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setIsVerifying(false)}
                 className="text-slate-400 font-black text-xs hover:text-slate-600 transition-colors uppercase tracking-widest"
               >
@@ -395,7 +384,6 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
         )}
       </div>
 
-      {/* Language Selector */}
       <div className="absolute top-6 right-6 lg:right-10 z-50">
         <button onClick={() => setShowLanguageMenu(!showLanguageMenu)} className="flex items-center gap-2 px-5 py-2.5 bg-white/80 backdrop-blur-md rounded-2xl shadow-sm hover:shadow-md transition-all border border-slate-200">
           <Globe className="w-5 h-5 text-teal-600" />
@@ -414,7 +402,6 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
       </div>
 
       <div className="max-w-6xl w-full bg-white rounded-2xl sm:rounded-[2.5rem] shadow-2xl shadow-slate-200/50 flex overflow-hidden border border-slate-100 min-h-0 sm:min-h-[850px]">
-        {/* Left branding */}
         <div className="hidden lg:flex lg:w-4/12 bg-gradient-to-br from-teal-500 via-teal-600 to-emerald-700 p-12 text-white flex-col justify-between relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-400/20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3" />
@@ -444,7 +431,6 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
           </div>
         </div>
 
-        {/* Right form */}
         <div className="w-full lg:w-8/12 p-8 lg:p-12 flex flex-col justify-center overflow-y-auto">
           <div className="max-w-xl w-full mx-auto">
             <div className="mb-8 text-center lg:text-left flex items-center justify-between">
@@ -455,7 +441,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
               <div className="text-right">
                 <p className="text-xs font-black text-teal-600 uppercase tracking-widest">{tc.step || 'Step'} {step}/2</p>
                 <div className="w-20 h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
-                    <div className="h-full bg-teal-500 transition-all duration-500" style={{ width: `${(step/2)*100}%` }}></div>
+                  <div className="h-full bg-teal-500 transition-all duration-500" style={{ width: `${(step / 2) * 100}%` }}></div>
                 </div>
               </div>
             </div>
@@ -469,7 +455,6 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
 
             {step === 1 ? (
               <form onSubmit={handleNext} className="space-y-6">
-                {/* Role */}
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-3">{ta.chooseRole}</label>
                   <div className="grid grid-cols-2 gap-4">
@@ -492,7 +477,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                     <div className="relative group">
                       <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                         className={`w-full ${isRtl ? 'pr-12 pl-4' : 'pl-12 pr-4'} py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl focus:bg-white focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all font-medium text-slate-800`}
-                        placeholder="John" required pattern="[A-Za-zÀ-ÿ\s-]{2,}" title="At least 2 letters required" />
+                        placeholder="John" required />
                       <div className={`absolute top-0 ${isRtl ? 'right-0' : 'left-0'} h-full w-12 flex items-center justify-center`}>
                         <User className="w-5 h-5 text-slate-400 group-focus-within:text-teal-500" />
                       </div>
@@ -558,15 +543,15 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
             ) : (
               <form onSubmit={handleSignup} className="space-y-6">
                 <button type="button" onClick={() => setStep(1)} className="flex items-center gap-2 text-teal-600 font-black text-sm mb-4">
-                    <ArrowLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} /> {ta.back}
+                  <ArrowLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} /> {ta.back}
                 </button>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">{ta.lastname}</label>
-                      <input type="text" value={lastname} onChange={(e) => setLastname(e.target.value)}
-                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-teal-500 outline-none transition-all font-medium"
-                        placeholder="Doe" required pattern="[A-Za-zÀ-ÿ\s-]{2,}" title="At least 2 letters required" />
+                    <input type="text" value={lastname} onChange={(e) => setLastname(e.target.value)}
+                      className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-teal-500 outline-none transition-all font-medium"
+                      placeholder="Doe" required />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">{ta.phone}</label>
@@ -582,100 +567,100 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">{ta.dateOfBirth}</label>
-                        <div className="relative">
-                            <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)}
-                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-teal-500 outline-none transition-all font-medium cursor-pointer"
-                                max={new Date().toISOString().split('T')[0]}
-                                required />
-                        </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">{ta.dateOfBirth}</label>
+                    <div className="relative">
+                      <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)}
+                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-teal-500 outline-none transition-all font-medium cursor-pointer"
+                        max={new Date().toISOString().split('T')[0]}
+                        required />
                     </div>
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">{ta.gender}</label>
-                        <CustomSelect 
-                            value={gender} 
-                            onChange={setGender} 
-                            options={[
-                                { value: 'Male', label: ta.male },
-                                { value: 'Female', label: ta.female },
-                                { value: 'Other', label: ta.other }
-                            ]}
-                            className={`w-full px-5 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl transition-all font-medium`}
-                        />
-                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">{ta.gender}</label>
+                    <CustomSelect
+                      value={gender}
+                      onChange={setGender}
+                      options={[
+                        { value: 'Male', label: ta.male },
+                        { value: 'Female', label: ta.female },
+                        { value: 'Other', label: ta.other }
+                      ]}
+                      className="w-full px-5 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl transition-all font-medium"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">{ta.address}</label>
-                    <div className="relative group">
-                        <input type="text" value={address} onChange={(e) => setAddress(e.target.value)}
-                            className={`w-full ${isRtl ? 'pr-12' : 'pl-12'} pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-teal-500 outline-none transition-all font-medium`}
-                            placeholder="Rue de la liberté, Tunis" required />
-                        <div className={`absolute top-0 ${isRtl ? 'right-0' : 'left-0'} h-full w-12 flex items-center justify-center`}>
-                            <MapPin className="w-5 h-5 text-slate-400" />
-                        </div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">{ta.address}</label>
+                  <div className="relative group">
+                    <input type="text" value={address} onChange={(e) => setAddress(e.target.value)}
+                      className={`w-full ${isRtl ? 'pr-12' : 'pl-12'} pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-teal-500 outline-none transition-all font-medium`}
+                      placeholder="Rue de la liberté, Tunis" required />
+                    <div className={`absolute top-0 ${isRtl ? 'right-0' : 'left-0'} h-full w-12 flex items-center justify-center`}>
+                      <MapPin className="w-5 h-5 text-slate-400" />
                     </div>
+                  </div>
                 </div>
 
                 {role === 'patient' ? (
-                   <div className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-bold text-teal-800 mb-1">{ta.bloodGroup}</label>
-                                <CustomSelect 
-                                    value={bloodGroup} 
-                                    onChange={setBloodGroup} 
-                                    icon={Droplets}
-                                    options={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => ({ value: bg, label: bg }))}
-                                    className={`w-full px-5 py-3.5 bg-teal-50 hover:bg-teal-100/70 border border-teal-100 rounded-2xl transition-all font-black text-teal-900 shadow-sm`}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-bold text-teal-800 mb-1">{ta.caregiverId}</label>
-                                <CustomSelect 
-                                    value={caregiverId} 
-                                    onChange={setCaregiverId} 
-                                    options={[
-                                        { value: '', label: ta.selectCaregiverOptional || 'Select a Caregiver (Optional)' },
-                                        ...caregiversList.map(cg => ({ value: cg.id || cg._id, label: `${cg.name} ${cg.lastname || ''}` }))
-                                    ]}
-                                    className={`w-full px-5 py-3.5 bg-teal-50 hover:bg-teal-100/70 border border-teal-100 rounded-2xl transition-all font-medium text-teal-900 shadow-sm`}
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-teal-800 mb-2">{ta.conditions}</label>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                {conditionItems.map(({ key, label }) => {
-                                    const isSel = selectedConditions.includes(key);
-                                    return (
-                                        <button key={key} type="button"
-                                            onClick={() => { if (isSel) { if (selectedConditions.length > 1) setSelectedConditions(selectedConditions.filter(c => c !== key)); } else { setSelectedConditions([...selectedConditions, key]); } }}
-                                            className={`py-2 px-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-tight transition-all ${isSel ? 'bg-teal-600 border-teal-600 text-white shadow-md' : 'bg-white border-teal-100 text-teal-600 hover:border-teal-300'}`}>
-                                            {label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                   </div>
-                ) : (
-                    <div className="p-6 bg-amber-50 rounded-[2rem] border border-amber-100">
-                        <label className="block text-sm font-bold text-amber-800 mb-1">{ta.patientId}</label>
-                        <div className="relative group">
-                            <CustomSelect 
-                                value={patientId} 
-                                onChange={setPatientId} 
-                                options={[
-                                    { value: '', label: ta.selectPatient || 'Select a Patient' },
-                                    ...patientsList.map(pat => ({ value: pat.id || pat._id, label: `${pat.name} ${pat.lastname || ''}` }))
-                                ]}
-                                className="w-full px-5 py-3.5 bg-white border border-amber-200 rounded-2xl focus:ring-4 focus:ring-amber-500/20 outline-none transition-all font-medium text-amber-900"
-                            />
-                        </div>
-                        <p className="text-[10px] text-amber-600 mt-2 px-1 font-bold italic">{ta.patientIdHint}</p>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-teal-800 mb-1">{ta.bloodGroup}</label>
+                        <CustomSelect
+                          value={bloodGroup}
+                          onChange={setBloodGroup}
+                          icon={Droplets}
+                          options={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => ({ value: bg, label: bg }))}
+                          className="w-full px-5 py-3.5 bg-teal-50 hover:bg-teal-100/70 border border-teal-100 rounded-2xl transition-all font-black text-teal-900 shadow-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-teal-800 mb-1">{ta.caregiverId}</label>
+                        <CustomSelect
+                          value={caregiverId}
+                          onChange={setCaregiverId}
+                          options={[
+                            { value: '', label: ta.selectCaregiverOptional || 'Select a Caregiver (Optional)' },
+                            ...caregiversList.map(cg => ({ value: cg.id || cg._id, label: `${cg.name} ${cg.lastname || ''}` }))
+                          ]}
+                          className="w-full px-5 py-3.5 bg-teal-50 hover:bg-teal-100/70 border border-teal-100 rounded-2xl transition-all font-medium text-teal-900 shadow-sm"
+                        />
+                      </div>
                     </div>
+                    <div>
+                      <label className="block text-sm font-bold text-teal-800 mb-2">{ta.conditions}</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {conditionItems.map(({ key, label }) => {
+                          const isSel = selectedConditions.includes(key);
+                          return (
+                            <button key={key} type="button"
+                              onClick={() => { if (isSel) { if (selectedConditions.length > 1) setSelectedConditions(selectedConditions.filter(c => c !== key)); } else { setSelectedConditions([...selectedConditions, key]); } }}
+                              className={`py-2 px-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-tight transition-all ${isSel ? 'bg-teal-600 border-teal-600 text-white shadow-md' : 'bg-white border-teal-100 text-teal-600 hover:border-teal-300'}`}>
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 bg-amber-50 rounded-[2rem] border border-amber-100">
+                    <label className="block text-sm font-bold text-amber-800 mb-1">{ta.patientId}</label>
+                    <div className="relative group">
+                      <CustomSelect
+                        value={patientId}
+                        onChange={setPatientId}
+                        options={[
+                          { value: '', label: ta.selectPatient || 'Select a Patient' },
+                          ...patientsList.map(pat => ({ value: pat.id || pat._id, label: `${pat.name} ${pat.lastname || ''}` }))
+                        ]}
+                        className="w-full px-5 py-3.5 bg-white border border-amber-200 rounded-2xl focus:ring-4 focus:ring-amber-500/20 outline-none transition-all font-medium text-amber-900"
+                      />
+                    </div>
+                    <p className="text-[10px] text-amber-600 mt-2 px-1 font-bold italic">{ta.patientIdHint}</p>
+                  </div>
                 )}
 
                 <div className="pt-4">
@@ -699,4 +684,3 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
     </div>
   );
 }
-
