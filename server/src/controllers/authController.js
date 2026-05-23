@@ -31,7 +31,6 @@ export const loginUser = async (req, res) => {
     const user = await findUserByEmail(email);
 
     if (user && (await verifyPassword(user, password))) {
-      // Check if email is verified
       if (!user.isEmailVerified) {
         return res.status(403).json({ message: 'Please verify your email address before logging in.' });
       }
@@ -43,10 +42,10 @@ export const loginUser = async (req, res) => {
       }
 
       if (user.status !== 'active') {
-        return res.status(403).json({ 
-          message: user.status === 'pending' 
-            ? 'Your account is pending approval by an admin.' 
-            : 'Your account is inactive. Please contact support.' 
+        return res.status(403).json({
+          message: user.status === 'pending'
+            ? 'Your account is pending approval by an admin.'
+            : 'Your account is inactive. Please contact support.'
         });
       }
 
@@ -71,16 +70,16 @@ export const registerUser = async (req, res) => {
     const { name, email, password, role, ...extra } = req.body;
 
     if (!validatePasswordComplexity(password)) {
-      return res.status(400).json({ 
-        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#).' 
+      return res.status(400).json({
+        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#).'
       });
     }
 
     const userExists = await findUserByEmail(email);
-
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
     }
+
     const validRoles = ['patient', 'caregiver', 'doctor', 'admin'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ message: 'Invalid role' });
@@ -93,23 +92,24 @@ export const registerUser = async (req, res) => {
       email: email.toLowerCase(),
       password,
       role: role.toLowerCase(),
-      id: extra.id || `${role.toUpperCase().substring(0,3)}${Date.now()}`,
+      id: extra.id || `${role.toUpperCase().substring(0, 3)}${Date.now()}`,
       ...extra
     };
 
-    // Save to temporary verification collection
     await VerificationCode.findOneAndUpdate(
       { email: email.toLowerCase() },
-      { code: verificationToken, userData },
-      { upsert: true, returnDocument: 'after' }
+      {
+        code: verificationToken,
+        userData,
+        createdAt: new Date(),
+      },
+      { upsert: true, new: true }
     );
 
-    // Send verification email
     try {
       const emailResult = await sendVerificationEmail(userData.email, verificationToken);
-      
       const isDevMode = emailResult.status === 'dev-mode' || emailResult.status === 'fallback-mode';
-      
+
       res.status(200).json({
         message: isDevMode
           ? 'Verification code (Sandbox Mode): use the code displayed below.'
@@ -130,27 +130,40 @@ export const registerUser = async (req, res) => {
 export const verifyCode = async (req, res) => {
   try {
     const { code, email } = req.body;
-    
-    const verificationRecord = await VerificationCode.findOne({ 
-      email: email.toLowerCase(), 
-      code: code 
-    });
+
+    if (!code || !email) {
+      return res.status(400).json({ message: 'Email and code are required.' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedCode = String(code).trim();
+
+    const verificationRecord = await VerificationCode.findOne({ email: normalizedEmail });
 
     if (!verificationRecord) {
-      return res.status(400).json({ message: 'Invalid or expired verification code' });
+      return res.status(400).json({ message: 'No verification request found for this email. Please register again.' });
+    }
+
+    if (String(verificationRecord.code).trim() !== normalizedCode) {
+      return res.status(400).json({ message: 'Invalid verification code. Please check and try again.' });
+    }
+
+    const TEN_MINUTES = 10 * 60 * 1000;
+    const recordAge = Date.now() - new Date(verificationRecord.createdAt).getTime();
+    if (recordAge > TEN_MINUTES) {
+      await VerificationCode.deleteOne({ _id: verificationRecord._id });
+      return res.status(400).json({ message: 'Verification code has expired. Please register again.' });
     }
 
     const { userData } = verificationRecord;
-    
-    // Create the staging record in PendingUser collection
+
     const pendingUser = new PendingUser({
       ...userData,
       isEmailVerified: true
     });
-    
+
     await pendingUser.save();
 
-    // Notify Admins about new registration request
     const admins = await Admin.find({});
     const notifications = admins.map(admin => ({
       id: `NTF-REG-${Date.now()}-${pendingUser._id}`,
@@ -164,14 +177,13 @@ export const verifyCode = async (req, res) => {
       await Notification.insertMany(notifications);
     }
 
-    // Delete the verification record
     await VerificationCode.deleteOne({ _id: verificationRecord._id });
 
-    // Invalidate admin dashboard caches
     cache.flushAll();
 
     res.status(201).json({ message: 'Email verified successfully! Your account has been submitted and is pending admin approval before database registration.' });
   } catch (error) {
+    console.error('verifyCode error:', error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
@@ -179,7 +191,7 @@ export const verifyCode = async (req, res) => {
 export const verifyEmail = async (req, res) => {
   try {
     const { token, email } = req.query;
-    
+
     const models = { admin: Admin, doctor: Doctor, patient: Patient, caregiver: Caregiver };
     let userFound = null;
 
@@ -263,9 +275,8 @@ export const changePassword = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Use the model method if available, otherwise fallback to manual compare
-    const isMatch = user.matchPassword 
-      ? await user.matchPassword(currentPassword) 
+    const isMatch = user.matchPassword
+      ? await user.matchPassword(currentPassword)
       : await bcrypt.compare(currentPassword, user.password);
 
     if (!isMatch) {
@@ -273,8 +284,8 @@ export const changePassword = async (req, res) => {
     }
 
     if (!validatePasswordComplexity(newPassword)) {
-      return res.status(400).json({ 
-        message: 'New password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#).' 
+      return res.status(400).json({
+        message: 'New password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#).'
       });
     }
 
@@ -304,8 +315,8 @@ export const changeEmail = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const isMatch = user.matchPassword 
-      ? await user.matchPassword(password) 
+    const isMatch = user.matchPassword
+      ? await user.matchPassword(password)
       : await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
@@ -320,4 +331,3 @@ export const changeEmail = async (req, res) => {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
-
