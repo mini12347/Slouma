@@ -7,18 +7,12 @@
     "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
     "dev:client": "cd client && npm run dev",
     "dev:server": "cd server && npm run dev",
-    "build": "cd client && npm install --include=dev && npm run build",
-    "start": "cd server && npm start",
+    "build": "npm install --prefix client && npm run build --prefix client",
+    "start": "npm install --prefix server --omit=dev && node server/src/index.js",
     "install:all": "npm install --prefix client && npm install --prefix server",
     "seed": "cd server && npm run seed"
   },
-  "keywords": [
-    "healthcare",
-    "react",
-    "nodejs",
-    "mongodb",
-    "express"
-  ],
+  "keywords": ["healthcare", "react", "nodejs", "mongodb", "express"],
   "author": "Slouma Team",
   "license": "ISC",
   "devDependencies": {
