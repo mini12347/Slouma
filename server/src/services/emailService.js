@@ -1,19 +1,17 @@
-import { Resend } from 'resend';
-
-let resendClient = null;
+import * as brevo from '@getbrevo/brevo';
 
 const isRealCredentials = () => {
   return (
-    process.env.RESEND_API_KEY &&
-    process.env.RESEND_API_KEY !== 'your-resend-api-key'
+    process.env.BREVO_API_KEY &&
+    process.env.BREVO_API_KEY !== 'your-brevo-api-key'
   );
 };
 
-const getResendClient = () => {
-  if (resendClient) return resendClient;
-  resendClient = new Resend(process.env.RESEND_API_KEY);
-  console.log('✅ Resend client configured');
-  return resendClient;
+const getBrevoClient = () => {
+  const apiInstance = new brevo.TransactionalEmailsApi();
+  apiInstance.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
+  console.log('✅ Brevo client configured');
+  return apiInstance;
 };
 
 const emailHtml = (code) => `
@@ -30,7 +28,6 @@ const emailHtml = (code) => `
 `;
 
 export const sendVerificationEmail = async (email, code) => {
-  // Dev fallback — no API key set
   if (!isRealCredentials()) {
     console.log('🔄 Dev mode — skipping real email send');
     console.log(`📋 Verification code for ${email}: ${code}`);
@@ -38,23 +35,17 @@ export const sendVerificationEmail = async (email, code) => {
   }
 
   try {
-    const client = getResendClient();
+    const apiInstance = getBrevoClient();
 
-    const { data, error } = await client.emails.send({
-      from: process.env.EMAIL_FROM || 'Slouma Health <no-reply@yourdomain.com>',
-      to: email,
-      subject: 'Verification Code - Slouma Health',
-      html: emailHtml(code),
-    });
+    const sendSmtpEmail = new brevo.SendSmtpEmail();
+    sendSmtpEmail.to = [{ email }];
+    sendSmtpEmail.sender = { email: process.env.EMAIL_FROM, name: 'Slouma Health' };
+    sendSmtpEmail.subject = 'Verification Code - Slouma Health';
+    sendSmtpEmail.htmlContent = emailHtml(code);
 
-    if (error) {
-      console.error('❌ Email send failed:', error.message);
-      return { status: 'fallback-mode', code, error: error.message };
-    }
-
-    console.log('📧 Email sent to', email, '— Message ID:', data.id);
-    return { status: 'success', messageId: data.id };
-
+    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log('📧 Email sent to', email, '— Message ID:', response.messageId);
+    return { status: 'success', messageId: response.messageId };
   } catch (error) {
     console.error('❌ Email send failed:', error.message);
     return { status: 'fallback-mode', code, error: error.message };
