@@ -1,4 +1,4 @@
-import * as brevo from '@getbrevo/brevo';
+import SibApiV3Sdk from '@getbrevo/brevo';
 
 const isRealCredentials = () => {
   return (
