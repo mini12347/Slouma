@@ -1,4 +1,4 @@
-import SibApiV3Sdk from '@getbrevo/brevo';
+import { TransactionalEmailsApi, SendSmtpEmail, ApiClient } from '@getbrevo/brevo';
 
 const isRealCredentials = () => {
   return (
