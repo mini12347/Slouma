@@ -1,4 +1,4 @@
-import { TransactionalEmailsApi, SendSmtpEmail, ApiClient } from '@getbrevo/brevo';
+import { BrevoClient } from '@getbrevo/brevo';
 
 const isRealCredentials = () => {
   return (
