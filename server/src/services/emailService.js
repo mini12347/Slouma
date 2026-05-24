@@ -1,17 +1,8 @@
-import { BrevoClient } from '@getbrevo/brevo';
-
 const isRealCredentials = () => {
   return (
     process.env.BREVO_API_KEY &&
     process.env.BREVO_API_KEY !== 'your-brevo-api-key'
   );
-};
-
-const getBrevoClient = () => {
-  const apiInstance = new brevo.TransactionalEmailsApi();
-  apiInstance.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
-  console.log('✅ Brevo client configured');
-  return apiInstance;
 };
 
 const emailHtml = (code) => `
@@ -35,17 +26,30 @@ export const sendVerificationEmail = async (email, code) => {
   }
 
   try {
-    const apiInstance = getBrevoClient();
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': process.env.BREVO_API_KEY,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { email: process.env.EMAIL_FROM, name: 'Slouma Health' },
+        to: [{ email }],
+        subject: 'Verification Code - Slouma Health',
+        htmlContent: emailHtml(code),
+      }),
+    });
 
-    const sendSmtpEmail = new brevo.SendSmtpEmail();
-    sendSmtpEmail.to = [{ email }];
-    sendSmtpEmail.sender = { email: process.env.EMAIL_FROM, name: 'Slouma Health' };
-    sendSmtpEmail.subject = 'Verification Code - Slouma Health';
-    sendSmtpEmail.htmlContent = emailHtml(code);
+    const data = await response.json();
 
-    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
-    console.log('📧 Email sent to', email, '— Message ID:', response.messageId);
-    return { status: 'success', messageId: response.messageId };
+    if (!response.ok) {
+      console.error('❌ Email send failed:', data.message);
+      return { status: 'fallback-mode', code, error: data.message };
+    }
+
+    console.log('📧 Email sent to', email, '— Message ID:', data.messageId);
+    return { status: 'success', messageId: data.messageId };
   } catch (error) {
     console.error('❌ Email send failed:', error.message);
     return { status: 'fallback-mode', code, error: error.message };
