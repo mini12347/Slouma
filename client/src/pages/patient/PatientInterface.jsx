@@ -725,12 +725,12 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
                         <Phone className="w-8 h-8 text-red-400 group-hover:text-white" />
                       </button>
                       <button 
-                        onClick={() => window.location.href = `tel:197`}
+                        onClick={() => window.location.href = `tel:198`}
                         className="bg-white/50 border-4 border-red-100 p-6 rounded-3xl flex items-center justify-between group hover:bg-red-600 transition-all"
                       >
                         <div className="text-start">
-                          <p className="text-2xl font-black text-slate-700 group-hover:text-white">Police</p>
-                          <p className="text-xl font-bold text-red-500 group-hover:text-red-100">197</p>
+                          <p className="text-2xl font-black text-slate-700 group-hover:text-white">Civil Protection</p>
+                          <p className="text-xl font-bold text-red-500 group-hover:text-red-100">198</p>
                         </div>
                         <Phone className="w-8 h-8 text-red-400 group-hover:text-white" />
                       </button>
