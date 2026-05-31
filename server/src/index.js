@@ -28,7 +28,12 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+const cors = require('cors');
+
+app.use(cors({
+  origin: 'slouma-shmb-p4jp7gq3q-khgvs-projects.vercel.app',
+  credentials: true
+}));
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {
