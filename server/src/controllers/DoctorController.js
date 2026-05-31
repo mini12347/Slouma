@@ -100,10 +100,39 @@ export const getDoctorDashboard = async (req, res) => {
 
         const notifications = await Notification.find({ receiverID: id }).sort({ date: -1 }).limit(10);
         
+        // Fetch tasks from caregivers for doctor's patients
+        const Caregiver = await import('../models/caregiver.js').then(m => m.default);
+        const tasks = [];
+        for (const patient of myPatients) {
+            if (patient.caregiverIDs && patient.caregiverIDs.length > 0) {
+                for (const cgId of patient.caregiverIDs) {
+                    try {
+                        const caregiver = await Caregiver.findOne({
+                            $or: [{ _id: mongoose.Types.ObjectId.isValid(cgId) ? cgId : null }, { id: cgId }]
+                        });
+                        if (caregiver && caregiver.tasks) {
+                            caregiver.tasks.forEach(task => {
+                                tasks.push({
+                                    ...task._doc || task,
+                                    caregiverId: caregiver.id || caregiver._id.toString(),
+                                    caregiverName: caregiver.name,
+                                    patientId: patient.id || patient._id.toString(),
+                                    patientName: patient.name
+                                });
+                            });
+                        }
+                    } catch (err) {
+                        console.error('Error fetching caregiver tasks:', err);
+                    }
+                }
+            }
+        }
+        
         res.status(200).json({
             doctor,
             patients: myPatients,
-            notifications
+            notifications,
+            tasks
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

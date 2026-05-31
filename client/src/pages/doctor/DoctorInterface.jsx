@@ -735,6 +735,7 @@ function DoctorSidebar({ activeTab, setActiveTab, onLogout, language, showSideba
     { id: 'dashboard', icon: Activity, label: td.dashboard },
     { id: 'patients', icon: Users, label: td.patients },
     { id: 'vitals', icon: Heart, label: td.vitals },
+    { id: 'tasks', icon: CheckCircle, label: td.tasks || 'Tâches' },
     { id: 'prescriptions', icon: Pill, label: td.prescriptions },
     { id: 'analytics', icon: TrendingUp, label: td.analytics },
     { id: 'messages', icon: MessageCircle, label: tc.messages },
@@ -833,6 +834,7 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
   const [appointmentsList, setAppointmentsList] = React.useState([]);
   const [prescriptionsList, setPrescriptionsList] = React.useState([]);
   const [notificationsList, setNotificationsList] = React.useState([]);
+  const [tasksList, setTasksList] = React.useState([]);
 
   React.useEffect(() => {
     if (patient) fetchDashboard();
@@ -898,7 +900,7 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
       setPatientsList(mappedPatients);
       setPrescriptionsList(mappedPrescriptions);
       setAppointmentsList(mappedAppointments);
-
+      setTasksList(data.tasks || []);
       if (data.notifications) setNotificationsList(data.notifications);
     } catch (err) {
       console.error('Failed to fetch doctor dashboard', err);
@@ -1389,6 +1391,150 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
     />
   );
 
+  const DoctorTasks = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todayTasks = tasksList.filter(task => {
+      const taskDate = new Date(task.date);
+      return taskDate >= today && taskDate <= new Date(today.getTime() + 24 * 60 * 60 * 1000);
+    });
+
+    const getTaskIcon = (type) => {
+      switch(type) {
+        case 'medication': return <Pill className="w-6 h-6 text-teal-700" />;
+        case 'vitals': return <Heart className="w-6 h-6 text-indigo-500" />;
+        case 'meal': return <Droplet className="w-6 h-6 text-amber-500" />;
+        case 'activity': return <Activity className="w-6 h-6 text-teal-700" />;
+        default: return <CheckCircle className="w-6 h-6 text-slate-400" />;
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Tâches du jour</h2>
+          <div className="bg-teal-50 text-teal-800 border border-teal-200 px-5 py-2.5 rounded-xl font-black text-sm shadow-sm">
+            {todayTasks.length} tâches aujourd'hui
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white rounded-3xl p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-2xl font-black text-slate-800 tracking-tight">Liste des tâches</h3>
+                <p className="text-teal-700 font-bold text-base mt-1">
+                  {todayTasks.filter(t => t.status === 'completed').length} de {todayTasks.length} complétées
+                </p>
+              </div>
+              {todayTasks.length > 0 && (
+                <div className="text-lg font-black text-teal-800 bg-teal-50 px-5 py-2 rounded-xl border border-teal-100 shadow-sm">
+                  {Math.round((todayTasks.filter(t => t.status === 'completed').length / todayTasks.length) * 100)}%
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              {todayTasks.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                  <p className="text-slate-400 font-bold">Aucune tâche pour aujourd'hui</p>
+                </div>
+              ) : (
+                todayTasks.map(task => (
+                  <div 
+                    key={task._id || task.id} 
+                    className={`flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${
+                      task.status === 'completed' 
+                        ? 'border-teal-100 bg-teal-50/50 opacity-80' 
+                        : 'border-slate-100 hover:border-teal-300 bg-white shadow-sm hover:shadow-md'
+                    }`}
+                  >
+                    <div className="flex items-center gap-5">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 shadow-sm ${
+                        task.status === 'completed' ? 'bg-teal-100 border-teal-200 text-teal-700' : 'bg-slate-50 border-slate-100'
+                      }`}>
+                        {task.status === 'completed' ? <CheckCircle className="w-7 h-7" /> : getTaskIcon(task.type)}
+                      </div>
+                      <div>
+                        <h4 className={`text-lg font-bold ${task.status === 'completed' ? 'text-slate-500 line-through decoration-slate-300' : 'text-slate-800'}`}>
+                          {task.title}
+                        </h4>
+                        <div className="flex items-center gap-3 mt-1">
+                          <Clock className="w-4 h-4 text-slate-400" />
+                          <span className="text-sm font-bold text-slate-500">
+                            {new Date(task.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          </span>
+                          <span className="text-sm font-bold text-slate-400">•</span>
+                          <span className="text-sm font-bold text-slate-500">{task.patientName}</span>
+                          <span className="text-sm font-bold text-slate-400">•</span>
+                          <span className="text-sm font-bold text-indigo-600">{task.caregiverName}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`px-4 py-1.5 rounded-xl text-xs font-black border shadow-sm ${
+                      task.status === 'completed' 
+                        ? 'bg-teal-100 text-teal-700 border-teal-200' 
+                        : 'bg-amber-50 text-amber-600 border-amber-200'
+                    }`}>
+                      {task.status === 'completed' ? 'Complété' : 'En attente'}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="bg-gradient-to-br from-teal-600 to-teal-500 rounded-3xl p-8 shadow-lg shadow-teal-600/20 text-white">
+              <h3 className="text-xl font-black mb-4">Résumé du jour</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-teal-100 font-semibold">Total tâches</span>
+                  <span className="text-2xl font-black">{todayTasks.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-teal-100 font-semibold">Complétées</span>
+                  <span className="text-2xl font-black">{todayTasks.filter(t => t.status === 'completed').length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-teal-100 font-semibold">En attente</span>
+                  <span className="text-2xl font-black">{todayTasks.filter(t => t.status !== 'completed').length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100">
+              <h3 className="font-black text-xl text-slate-800 tracking-tight mb-5">Tâches par patient</h3>
+              <div className="space-y-3">
+                {Array.from(new Set(todayTasks.map(t => t.patientName))).map(patientName => {
+                  const patientTasks = todayTasks.filter(t => t.patientName === patientName);
+                  const completed = patientTasks.filter(t => t.status === 'completed').length;
+                  return (
+                    <div key={patientName} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center text-teal-700 font-black">
+                          {patientName.charAt(0)}
+                        </div>
+                        <span className="font-bold text-slate-800">{patientName}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-black text-teal-700">{completed}</span>
+                        <span className="text-slate-400">/</span>
+                        <span className="font-bold text-slate-600">{patientTasks.length}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-100" dir={isRtl ? 'rtl' : 'ltr'}>
       <DoctorSidebar 
@@ -1409,6 +1555,7 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
                   dashboard: td?.dashboard,
                   patients: td?.patients,
                   vitals: td?.vitals,
+                  tasks: td?.tasks || 'Tâches',
                   prescriptions: td?.prescriptions,
                   analytics: td?.analytics,
                   messages: tc?.messages
@@ -1473,6 +1620,7 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
               />
             )}
             {activeTab === 'vitals' && <DoctorVitals />}
+            {activeTab === 'tasks' && <DoctorTasks />}
             {activeTab === 'prescriptions' && <DoctorPrescriptions />}
             {activeTab === 'analytics' && <DoctorAnalytics />}
             {activeTab === 'messages' && <DoctorMessages />}
