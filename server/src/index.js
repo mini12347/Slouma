@@ -28,12 +28,25 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-
-
 app.use(cors({
-  origin: 'slouma-shmb-p4jp7gq3q-khgvs-projects.vercel.app',
+  origin: function (origin, callback) {
+    const allowed = [
+      'https://slouma-shmb.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:5000',
+    ];
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
+app.options('*', cors());
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {
