@@ -5,6 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import patientRoutes from './routes/patientRoutes.js';
@@ -28,7 +29,8 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors({
+// ─── CORS ────────────────────────────────────────────────────────────────────
+const corsOptions = {
   origin: function (origin, callback) {
     const allowed = [
       'https://slouma-shmb.vercel.app',
@@ -36,19 +38,30 @@ app.use(cors({
       'http://localhost:3000',
       'http://localhost:5000',
     ];
-    if (!origin || allowed.includes(origin)) {
+    // Allow any Vercel preview deploy for your project
+    const vercelPreview = /^https:\/\/slouma-shmb.*\.vercel\.app$/;
+
+    if (!origin || allowed.includes(origin) || vercelPreview.test(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`CORS blocked: ${origin}`));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
-app.options('*', cors());
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions)); // ✅ Fix: replaces app.options('*') which breaks path-to-regexp
+
+// ─── BODY PARSING ────────────────────────────────────────────────────────────
 app.use(express.json());
 
+// ─── STATIC FILES ────────────────────────────────────────────────────────────
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+// ─── ROUTES ──────────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -67,14 +80,14 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/links', linkingRoutes);
 app.use('/api/videos', videoRoutes);
 
-
+// ─── SERVE FRONTEND ──────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../../client/dist')));
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, '../../client/dist', 'index.html'));
 });
 
+// ─── START ───────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server listening on port ${PORT}`);
 });
