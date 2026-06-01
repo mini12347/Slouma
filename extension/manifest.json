@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Slouma Content Reporter",
+  "version": "1.0",
+  "description": "Chrome extension for content reporting",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content_reporter.js"],
+      "type": "module"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}
