@@ -1,11 +1,12 @@
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 dotenv.config();
+dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.env') });
 
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import patientRoutes from './routes/patientRoutes.js';
@@ -33,13 +34,15 @@ const PORT = process.env.PORT || 5000;
 const corsOptions = {
   origin: function (origin, callback) {
     const allowed = [
+      'https://slouma-production.up.railway.app',
       'https://slouma-shmb.vercel.app',
       'http://localhost:5173',
       'http://localhost:3000',
       'http://localhost:5000',
     ];
+    const railPattern = /^https:\/\/.*\.railway\.app$/;
     const vercelPreview = /^https:\/\/slouma-shmb.*\.vercel\.app$/;
-    if (!origin || allowed.includes(origin) || vercelPreview.test(origin)) {
+    if (!origin || allowed.includes(origin) || railPattern.test(origin) || vercelPreview.test(origin)) {
       callback(null, true);
     } else {
       callback(new Error(`CORS blocked: ${origin}`));
