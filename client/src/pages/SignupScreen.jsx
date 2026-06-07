@@ -71,6 +71,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
   const [caregiverId, setCaregiverId] = useState('');
   const [patientId, setPatientId] = useState('');
   const [selectedConditions, setSelectedConditions] = useState(['heartDisease']);
+  const [specialty, setSpecialty] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -118,11 +119,11 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
   ];
 
   const passwordRequirements = [
-    { regex: /.{8,}/, label: language === 'fr' ? 'Minimum 8 caractères' : language === 'ar' || language === 'tn' ? 'على الأقل 8 أحرف' : 'Minimum 8 characters' },
-    { regex: /[A-Z]/, label: language === 'fr' ? 'Au moins une lettre majuscule' : language === 'ar' || language === 'tn' ? 'حرف كبير واحد على الأقل' : 'At least one uppercase letter' },
-    { regex: /[a-z]/, label: language === 'fr' ? 'Au moins une lettre minuscule' : language === 'ar' || language === 'tn' ? 'حرف صغير واحد على الأقل' : 'At least one lowercase letter' },
-    { regex: /\d/, label: language === 'fr' ? 'Au moins un chiffre' : language === 'ar' || language === 'tn' ? 'رقم واحد على الأقل' : 'At least one number' },
-    { regex: /[@$!%*?&#]/, label: language === 'fr' ? 'Au moins un caractère spécial (@$!%*?&#)' : language === 'ar' || language === 'tn' ? 'رمز خاص واحد على الأقل (@$!%*?&#)' : 'At least one special character (@$!%*?&#)' },
+    { regex: /.{8,}/, label: ta.pwdMin8 },
+    { regex: /[A-Z]/, label: ta.pwdUppercase },
+    { regex: /[a-z]/, label: ta.pwdLowercase },
+    { regex: /\d/, label: ta.pwdNumber },
+    { regex: /[@$!%*?&#]/, label: ta.pwdSpecial },
   ];
 
   const validatePassword = (pass) => {
@@ -137,10 +138,10 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
 
   const handleNext = (e) => {
     e.preventDefault();
-    if (name.trim().length < 2) { setError("First name must be at least 2 characters long."); return; }
+    if (name.trim().length < 2) { setError(ta.firstNameError); return; }
     if (password !== confirmPassword) { setError(ta.passwordMismatch); return; }
     if (!validatePassword(password)) { 
-      setError("Password does not meet the security requirements."); 
+      setError(ta.passwordRequirementsError); 
       return; 
     }
     setError('');
@@ -151,9 +152,9 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
     e.preventDefault();
     setError('');
     
-    if (lastname.trim().length < 2) { setError("Last name must be at least 2 characters long."); return; }
+    if (lastname.trim().length < 2) { setError(ta.lastNameError); return; }
     if (!/^(2|4|5|7|9)[0-9]{7}$/.test(phone)) {
-      setError("Please enter a valid Tunisian phone number (8 digits, starting with 2, 4, 5, 7, or 9).");
+      setError(ta.phoneError);
       return;
     }
 
@@ -161,7 +162,12 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
     const addrLower = address.toLowerCase();
     const isValidTunisianAddress = tunisianGovernorates.some(gov => addrLower.includes(gov));
     if (!isValidTunisianAddress) {
-      setError(language === 'fr' ? "L'adresse doit inclure un gouvernorat tunisien valide." : language === 'ar' || language === 'tn' ? "يجب أن يتضمن العنوان ولاية تونسية صالحة." : "Address must include a valid Tunisian governorate.");
+      setError(ta.validTunisianAddress);
+      return;
+    }
+
+    if (role === 'doctor' && !specialty) {
+      setError(ta.specialty + ta.specialtyRequired);
       return;
     }
 
@@ -169,7 +175,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
     if (role === 'patient') {
       const today = new Date().toISOString().split('T')[0];
       if (dateOfBirth > today) {
-        setError("Date of birth cannot be in the future.");
+        setError(ta.dateOfBirthError);
         return;
       }
       const primaryCondition = selectedConditions[0] || 'heartDisease';
@@ -209,7 +215,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
         role,
         phone,
         address,
-        id: role === 'patient' ? `PAT${Date.now()}` : `CG${Date.now()}`,
+        id: role === 'patient' ? `PAT${Date.now()}` : role === 'doctor' ? `DOC${Date.now()}` : `CG${Date.now()}`,
         ...(role === 'patient' && { 
             doctorIDs: assignedDoc ? [assignedDoc.id || assignedDoc._id] : [], 
             currentConditions: selectedConditions, 
@@ -218,6 +224,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
             gender,
             caregiverIDs: caregiverId ? [caregiverId] : []
         }),
+        ...(role === 'doctor' && { specialty, dateOfBirth, gender }),
         ...(role === 'caregiver' && { patientIDs: [patientId] }),
       };
 
@@ -373,10 +380,10 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 lg:p-8" dir={isRtl ? 'rtl' : 'ltr'}>
-      <div className={`absolute top-6 ${isRtl ? 'right-6 lg:right-10' : 'left-6 lg:left-10'} z-50 flex gap-2`}>
+      <div className="absolute top-6 left-6 lg:left-10 z-50 flex gap-2">
         {onGoToLanding && (
           <button onClick={onGoToLanding} className="flex items-center gap-2 px-5 py-2.5 bg-white/80 backdrop-blur-md rounded-2xl shadow-sm hover:shadow-md transition-all border border-slate-200 text-slate-700 text-sm font-bold">
-            <ArrowLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />{tc.back}
+            <ArrowLeft className="w-4 h-4" />{tc.back}
           </button>
         )}
       </div>
@@ -439,7 +446,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                 <p className="text-slate-500 font-medium mt-3">{ta.signupSubtitle}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-black text-teal-600 uppercase tracking-widest">{tc.step || 'Step'} {step}/2</p>
+                <p className="text-xs font-black text-teal-600 uppercase tracking-widest">{ta.step || 'Step'} {step}/2</p>
                 <div className="w-20 h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
                     <div className="h-full bg-teal-500 transition-all duration-500" style={{ width: `${(step/2)*100}%` }}></div>
                 </div>
@@ -458,9 +465,10 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                 {/* Role */}
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-3">{ta.chooseRole}</label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     {[
                       { id: 'patient', icon: HeartPulse, label: tc.roles.patient },
+                      { id: 'doctor', icon: Stethoscope, label: tc.roles.doctor },
                       { id: 'caregiver', icon: Users, label: tc.roles.caregiver },
                     ].map((r) => (
                       <button key={r.id} type="button" onClick={() => setRole(r.id)}
@@ -474,11 +482,11 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
 
                 <div className="grid grid-cols-1 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">{ta.name} (First Name)</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">{ta.name}</label>
                     <div className="relative group">
                       <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                         className={`w-full ${isRtl ? 'pr-12 pl-4' : 'pl-12 pr-4'} py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl focus:bg-white focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all font-medium text-slate-800`}
-                        placeholder="John" required pattern="[A-Za-zÀ-ÿ\s-]{2,}" title="At least 2 letters required" />
+                        placeholder={ta.firstNamePlaceholder} required pattern="[A-Za-zÀ-ÿ\s-]{2,}" title={ta.firstNameHint} />
                       <div className={`absolute top-0 ${isRtl ? 'right-0' : 'left-0'} h-full w-12 flex items-center justify-center`}>
                         <User className="w-5 h-5 text-slate-400 group-focus-within:text-teal-500" />
                       </div>
@@ -489,7 +497,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                     <div className="relative group">
                       <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                         className={`w-full ${isRtl ? 'pr-12 pl-4' : 'pl-12 pr-4'} py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl focus:bg-white focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all font-medium text-slate-800`}
-                        placeholder="name@example.com" required />
+                        placeholder={ta.emailPlaceholder} required />
                       <div className={`absolute top-0 ${isRtl ? 'right-0' : 'left-0'} h-full w-12 flex items-center justify-center`}>
                         <Mail className="w-5 h-5 text-slate-400 group-focus-within:text-teal-500" />
                       </div>
@@ -552,14 +560,14 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                     <label className="block text-sm font-bold text-slate-700 mb-1">{ta.lastname}</label>
                       <input type="text" value={lastname} onChange={(e) => setLastname(e.target.value)}
                         className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-teal-500 outline-none transition-all font-medium"
-                        placeholder="Doe" required pattern="[A-Za-zÀ-ÿ\s-]{2,}" title="At least 2 letters required" />
+                        placeholder={ta.lastNamePlaceholder} required pattern="[A-Za-zÀ-ÿ\s-]{2,}" title={ta.firstNameHint} />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">{ta.phone}</label>
                     <div className="relative group">
                       <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
                         className={`w-full ${isRtl ? 'pr-12' : 'pl-12'} pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-teal-500 outline-none transition-all font-medium cursor-text`}
-                        placeholder="55 123 456" required pattern="^(2|4|5|7|9)[0-9]{7}$" maxLength="8" title="Tunisian phone number must be 8 digits and start with 2, 4, 5, 7, or 9" />
+                        placeholder={ta.phonePlaceholder} required pattern="^(2|4|5|7|9)[0-9]{7}$" maxLength="8" title={ta.phoneHint} />
                       <div className={`absolute top-0 ${isRtl ? 'right-0' : 'left-0'} h-full w-12 flex items-center justify-center`}>
                         <Phone className="w-5 h-5 text-slate-400" />
                       </div>
@@ -597,7 +605,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                     <div className="relative group">
                         <input type="text" value={address} onChange={(e) => setAddress(e.target.value)}
                             className={`w-full ${isRtl ? 'pr-12' : 'pl-12'} pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-teal-500 outline-none transition-all font-medium`}
-                            placeholder="Rue de la liberté, Tunis" required />
+                            placeholder={ta.addressPlaceholder} required />
                         <div className={`absolute top-0 ${isRtl ? 'right-0' : 'left-0'} h-full w-12 flex items-center justify-center`}>
                             <MapPin className="w-5 h-5 text-slate-400" />
                         </div>
@@ -646,6 +654,34 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                             </div>
                         </div>
                    </div>
+                ) : role === 'doctor' ? (
+                    <div className="p-6 bg-sky-50 rounded-[2rem] border border-sky-100">
+                        <label className="block text-sm font-bold text-sky-800 mb-1">{ta.specialty}</label>
+                          <CustomSelect 
+                            value={specialty} 
+                            onChange={setSpecialty} 
+                            icon={Stethoscope}
+                            options={[
+                                { value: '', label: `-- ${ta.specialty} --` },
+                                { value: 'General Medicine', label: ta.specialties?.generalMedicine || 'General Medicine' },
+                                { value: 'Cardiology', label: ta.specialties?.cardiology || 'Cardiology' },
+                                { value: 'Endocrinology', label: ta.specialties?.endocrinology || 'Endocrinology' },
+                                { value: 'Neurology', label: ta.specialties?.neurology || 'Neurology' },
+                                { value: 'Pediatrics', label: ta.specialties?.pediatrics || 'Pediatrics' },
+                                { value: 'Dermatology', label: ta.specialties?.dermatology || 'Dermatology' },
+                                { value: 'Orthopedics', label: ta.specialties?.orthopedics || 'Orthopedics' },
+                                { value: 'Psychiatry', label: ta.specialties?.psychiatry || 'Psychiatry' },
+                                { value: 'Ophthalmology', label: ta.specialties?.ophthalmology || 'Ophthalmology' },
+                                { value: 'ENT', label: ta.specialties?.ent || 'ENT' },
+                                { value: 'Pulmonology', label: ta.specialties?.pulmonology || 'Pulmonology' },
+                                { value: 'Gastroenterology', label: ta.specialties?.gastroenterology || 'Gastroenterology' },
+                                { value: 'Radiology', label: ta.specialties?.radiology || 'Radiology' },
+                                { value: 'Anesthesiology', label: ta.specialties?.anesthesiology || 'Anesthesiology' },
+                            ]}
+                            className="w-full px-5 py-3.5 bg-white border border-sky-200 rounded-2xl focus:ring-4 focus:ring-sky-500/20 outline-none transition-all font-medium text-sky-900"
+                        />
+                        <p className="text-[10px] text-sky-600 mt-2 px-1 font-bold italic">{ta.doctorAutoAssign}</p>
+                    </div>
                 ) : (
                     <div className="p-6 bg-amber-50 rounded-[2rem] border border-amber-100">
                         <label className="block text-sm font-bold text-amber-800 mb-1">{ta.patientId}</label>

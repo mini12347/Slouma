@@ -154,7 +154,7 @@ export default function NotificationsPanel({ isOpen, onClose, language, userId, 
         <div className="flex-1 overflow-y-auto">
           {notifications.length > 0 ? (
             <div className="divide-y divide-slate-100">
-              {notifications.map((notif) => (
+              {notifications.sort((a, b) => new Date(b.date || b.time) - new Date(a.date || a.time)).slice(0, 10).map((notif) => (
                 <div 
                   key={notif._id || notif.id}
                   className={`p-4 hover:bg-slate-50 transition-colors cursor-pointer flex gap-4 ${!notif.read ? 'bg-teal-50/30' : 'bg-white'}`}

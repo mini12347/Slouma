@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { videoService } from '../services/videoService';
 import { Film, PlayCircle } from 'lucide-react';
 
+const videoBaseUrl = (() => {
+  const apiUrl = import.meta.env.VITE_API_BASE_URL;
+  if (apiUrl) return apiUrl.replace(/\/api.*$/, '');
+  return window.location.hostname === 'localhost' ? 'http://localhost:5000' : '';
+})();
+
 export default function VideosSection({ language, userRole }) {
   const [videos, setVideos] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,7 +62,7 @@ export default function VideosSection({ language, userRole }) {
                 {video.url ? (
                   video.url.includes('/uploads/') ? (
                     <video 
-                      src={(window.location.hostname === 'localhost' && !video.url.startsWith('http') ? 'http://localhost:5000' : '') + video.url} 
+                      src={(!video.url.startsWith('http') ? videoBaseUrl : '') + video.url} 
                       className="absolute top-0 left-0 w-full h-full object-cover"
                       controls
                     ></video>

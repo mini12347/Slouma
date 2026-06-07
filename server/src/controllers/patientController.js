@@ -17,7 +17,7 @@ export const getPatientById = async (req, res) => {
   try {
     const { id } = req.params;
     const patient = await Patient.findOne({ 
-      $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] 
+      $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id: id }] 
     });
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
@@ -62,7 +62,7 @@ export const updatePatient = async (req, res) => {
   const { id } = req.params;
   const data = req.body;
 
-  const query = { $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] };
+  const query = { $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id: id }] };
   console.log(`Updating patient with ID: ${id}`, data);
 
   try {
@@ -84,14 +84,14 @@ export const updatePatient = async (req, res) => {
 
   if (data.doctorIDs) {
     await Doctor.updateMany(
-      { $or: [{ id: { $in: data.doctorIDs } }, { _id: { $in: data.doctorIDs } }] },
+      { $or: [{ id: { $in: data.doctorIDs } }, { _id: { $in: data.doctorIDs.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) } }] },
       { $addToSet: { patientIDs: updatedPatient.id || updatedPatient._id.toString() } }
     );
   }
 
   if (data.caregiverIDs) {
     await Caregiver.updateMany(
-      { $or: [{ id: { $in: data.caregiverIDs } }, { _id: { $in: data.caregiverIDs } }] },
+      { $or: [{ id: { $in: data.caregiverIDs } }, { _id: { $in: data.caregiverIDs.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) } }] },
       { $addToSet: { patientIDs: updatedPatient.id || updatedPatient._id.toString() } }
     );
   }
@@ -112,14 +112,14 @@ export const deletePatient = async (req, res) => {
     
     // 1. Try to delete from main Patient collection
     let deletedPatient = await Patient.findOneAndDelete({ 
-      $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] 
+      $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id: id }] 
     });
     
     // 2. If not found in primary, fallback to PendingUser staging collection
     if (!deletedPatient) {
       const { default: PendingUser } = await import('../models/PendingUser.js');
       deletedPatient = await PendingUser.findOneAndDelete({ 
-        $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] 
+        $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id: id }] 
       });
     }
 
@@ -143,7 +143,7 @@ export const takeMedicine = async (req, res) => {
   
   try {
     const patient = await Patient.findOne({ 
-      $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] 
+      $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id: id }] 
     });
     if (!patient) return res.status(404).json({ message: 'Patient not found' });
     
@@ -177,7 +177,7 @@ export const addVitals = async (req, res) => {
     if (vitals.weight) newVitals.weight = Number(vitals.weight);
 
     const updatedPatient = await Patient.findOneAndUpdate(
-      { $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] },
+      { $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id: id }] },
       { $push: { vitalSigns: newVitals } },
       { returnDocument: 'after' }
     );
@@ -201,7 +201,7 @@ export const addEmergencyContact = async (req, res) => {
   
   try {
     const patient = await Patient.findOne({ 
-      $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] 
+      $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id: id }] 
     });
     if (!patient) return res.status(404).json({ message: 'Patient not found' });
     
@@ -216,12 +216,45 @@ export const addEmergencyContact = async (req, res) => {
 // @desc    Delete emergency contact
 // @route   DELETE /api/patients/:id/emergency-contacts/:contactId
 // @access  Public
+export const getPatientTasks = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const patient = await Patient.findOne({
+      $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id }],
+    });
+    if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+    // Use raw stored `id` field — Mongoose virtual `id` returns _id.toString(), shadowing the real field
+    const patientID = (patient.toObject({ getters: false }).id) || patient._id.toString();
+    const cgIds = patient.caregiverIDs || [];
+    const caregivers = await Caregiver.find({
+      $or: [
+        { _id: { $in: cgIds.filter(cid => mongoose.Types.ObjectId.isValid(cid)).map(cid => new mongoose.Types.ObjectId(cid)) } },
+        { id: { $in: cgIds } },
+      ],
+    });
+
+    const tasks = caregivers.flatMap(cg =>
+      (cg.tasks || [])
+        .filter(t => String(t.patientID) === patientID)
+        .map(t => ({
+          ...(t.toObject ? t.toObject() : t),
+          caregiverName: (cg.name || '') + ' ' + (cg.lastname || ''),
+        }))
+    );
+
+    res.status(200).json(tasks);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const deleteEmergencyContact = async (req, res) => {
   const { id, contactId } = req.params;
   
   try {
     const patient = await Patient.findOne({ 
-      $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] 
+      $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id: id }] 
     });
     if (!patient) return res.status(404).json({ message: 'Patient not found' });
     

@@ -177,7 +177,7 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const { data } = await caregiverService.getDashboard(caregiverData._id || caregiverData.id);
+      const data = await caregiverService.getDashboard(caregiverData._id || caregiverData.id);
       setCaregiver(data.caregiver);
       
       setPatientsList(data.patients || []);
@@ -428,42 +428,66 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
           <div className="space-y-4">
             {tasks.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
-                <p className="text-slate-400 font-bold">No tasks assigned for today</p>
+                <p className="text-slate-400 font-bold">No tasks assigned</p>
               </div>
             ) : (
-              tasks.map(task => (
-                <div 
-                  key={task.id} 
-                  className={`group flex items-center justify-between p-5 rounded-2xl border-2 transition-all cursor-pointer ${
-                    task.status === 'completed' 
-                      ? 'border-teal-100 bg-teal-50/50 opacity-80' 
-                      : 'border-slate-100 hover:border-teal-300 bg-white shadow-sm hover:shadow-md'
-                  }`}
-                  onClick={() => toggleTask(task.id, task.status)}
-                >
-                  <div className="flex items-center gap-5">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 shadow-sm ${
-                      task.status === 'completed' ? 'bg-teal-100 border-teal-200 text-teal-700' : 'bg-slate-50 border-slate-100'
-                    }`}>
-                      {task.status === 'completed' ? <CheckCircle className="w-7 h-7" /> : getTaskIcon(task.type)}
-                    </div>
-                    <div>
-                      <h4 className={`text-lg font-bold transition-colors ${task.status === 'completed' ? 'text-slate-500 line-through decoration-slate-300' : 'text-slate-800'}`}>
-                        {task.title}
-                      </h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Clock className="w-4 h-4 text-slate-400" />
-                        <span className="text-sm font-bold text-slate-500">{task.time}</span>
-                      </div>
+              (() => {
+                const grouped = tasks.reduce((acc, task) => {
+                  const d = new Date(task.date);
+                  const key = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(task);
+                  return acc;
+                }, {});
+                const todayKey = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                return Object.entries(grouped).map(([dayLabel, dayTasks]) => (
+                  <div key={dayLabel}>
+                    <h4 className={`text-sm font-black uppercase tracking-wider mb-3 px-1 ${dayLabel === todayKey ? 'text-teal-600' : 'text-slate-400'}`}>
+                      {dayLabel === todayKey ? `📋 ${dayLabel}` : dayLabel}
+                    </h4>
+                    <div className="space-y-2">
+                      {dayTasks.map(task => (
+                        <div 
+                          key={task.id || task._id || Math.random()} 
+                          className={`group flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                            task.status === 'completed' 
+                              ? 'border-teal-100 bg-teal-50/50 opacity-80' 
+                              : 'border-slate-100 hover:border-teal-300 bg-white shadow-sm hover:shadow-md'
+                          }`}
+                          onClick={() => toggleTask(task.id || task._id, task.status)}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 shadow-sm ${
+                              task.status === 'completed' ? 'bg-teal-100 border-teal-200 text-teal-700' : 'bg-slate-50 border-slate-100'
+                            }`}>
+                              {task.status === 'completed' ? <CheckCircle className="w-6 h-6" /> : getTaskIcon(task.type)}
+                            </div>
+                            <div>
+                              <h4 className={`text-base font-bold transition-colors ${task.status === 'completed' ? 'text-slate-500 line-through decoration-slate-300' : 'text-slate-800'}`}>
+                                {task.title}
+                              </h4>
+                              <div className="flex items-center gap-3 mt-0.5">
+                                <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
+                                  <Clock className="w-3 h-3" />
+                                  {task.time}
+                                </span>
+                                {task.patientName && (
+                                  <span className="text-xs font-bold text-teal-500">{task.patientName}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                            task.status === 'completed' ? 'bg-teal-700 border-teal-700 text-white' : 'border-slate-300 bg-white group-hover:border-teal-400'
+                          }`}>
+                            {task.status === 'completed' && <CheckCircle className="w-4 h-4" />}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-colors ${
-                    task.status === 'completed' ? 'bg-teal-700 border-teal-700 text-white' : 'border-slate-300 bg-white group-hover:border-teal-400'
-                  }`}>
-                    {task.status === 'completed' && <CheckCircle className="w-5 h-5" />}
-                  </div>
-                </div>
-              ))
+                ));
+              })()
             )}
           </div>
         </div>
@@ -510,7 +534,14 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
             <div className="space-y-4">
               {doctorsList.length > 0 ? (
                 doctorsList.map(doc => (
-                  <button key={doc.id || doc._id} className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-indigo-50 hover:border-indigo-200 transition-all group">
+                  <button key={doc.id || doc._id} onClick={() => {
+                    const uid = caregiver?.id || caregiver?._id;
+                    const did = doc.id || doc._id;
+                    if (uid && did) {
+                      const ids = [uid, did].filter(Boolean).sort().join('-');
+                      window.open(`https://meet.jit.si/Slouma-Quick-${ids}?config.startWithVideoMuted=true`, '_blank');
+                    }
+                  }} className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-indigo-50 hover:border-indigo-200 transition-all group">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center">
                         <Heart className="w-6 h-6 text-indigo-500" />
@@ -534,7 +565,7 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
       <div className="bg-white rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 mt-6">
         <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-8 flex items-center gap-4">
           <Activity className="w-8 h-8 text-indigo-600" />
-          {language === 'fr' ? "Journal d'Activité" : "Activity Log"}
+          {tg.activityLog}
         </h3>
         <div className="space-y-6">
           {activitiesList.length === 0 ? (
@@ -599,8 +630,8 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
           <div className="w-16 h-16 bg-teal-100 text-teal-700 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
              <Plus className="w-8 h-8" />
           </div>
-          <h3 className="text-xl font-bold text-teal-950 mb-2">{language === 'fr' ? "Nouvelle mesure" : "New Measurement"}</h3>
-          <p className="font-semibold text-teal-800/70 mb-6 max-w-md">{language === 'fr' ? "Enregistrez une nouvelle mesure pour le patient." : "Record a new measurement for the patient."}</p>
+          <h3 className="text-xl font-bold text-teal-950 mb-2">{tg.newMeasurement}</h3>
+          <p className="font-semibold text-teal-800/70 mb-6 max-w-md">{tg.newMeasurementHint}</p>
           <button 
             onClick={() => { setSelectedPatientId(activePatient.id || activePatient._id); setShowVitalsModal(true); }}
             className="bg-teal-700 text-white font-black py-4 px-8 rounded-xl hover:bg-teal-800 transition-colors shadow-lg shadow-teal-700/20 text-lg"
@@ -726,10 +757,10 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
           {[
             { id: 'overview', icon: Activity, label: tg.overview },
             { id: 'vitals', icon: Heart, label: tg.vitals },
-            { id: 'prescriptions', icon: FileText, label: language === 'fr' ? 'Ordonnances' : language === 'ar' || language === 'tn' ? 'وصفات طبية' : 'Prescriptions' },
+            { id: 'prescriptions', icon: FileText, label: tg.prescriptions },
             { id: 'appointments', icon: Calendar, label: tg.appointments },
             { id: 'messages', icon: MessageSquare, label: tc.messages },
-            { id: 'videos', icon: Film, label: language === 'fr' ? 'Vidéos' : language === 'ar' || language === 'tn' ? 'فيديوهات' : 'Videos' },
+            { id: 'videos', icon: Film, label: tg.videos },
 
           ].map((tab) => {
             const isActive = activeTab === tab.id;
@@ -782,10 +813,10 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
               {{
                 overview: tg.overview,
                 vitals: tg.vitals,
-                prescriptions: language === 'fr' ? 'Ordonnances' : language === 'ar' || language === 'tn' ? 'وصفات طبية' : 'Prescriptions',
+                prescriptions: tg.prescriptions,
                 appointments: tg.appointments,
                 messages: tc.messages,
-                videos: language === 'fr' ? 'Vidéos' : language === 'ar' || language === 'tn' ? 'فيديوهات' : 'Videos'
+                videos: tg.videos
 
               }[activeTab]}
             </h2>
@@ -839,7 +870,7 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
               <div className="bg-white rounded-3xl p-10 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100">
                 <h2 className="text-3xl font-black text-slate-800 mb-8 flex items-center gap-4">
                    <FileText className="w-10 h-10 text-teal-600" />
-                   {language === 'fr' ? "Ordonnances de l'Ami" : "Patient Prescriptions"}
+                   {tg.patientPrescriptions}
                 </h2>
                 <div className="space-y-6">
                   {(activePatient.prescriptions?.length > 0 ? activePatient.prescriptions : [
@@ -892,7 +923,7 @@ export default function CaregiverInterface({ patient: caregiverData, onLogout, l
               <MessagesSection 
                 language={language} 
                 userRole="caregiver"
-                currentUser={{ ...caregiver, id: caregiver._id || caregiver.id, role: 'caregiver' }} 
+                currentUser={{ ...caregiver, id: caregiver.id || caregiver._id, role: 'caregiver' }} 
               />
             )}
           </div>

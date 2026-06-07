@@ -7,12 +7,14 @@ import CaregiverInterface from './pages/caregiver/CaregiverInterface';
 import DoctorInterface from './pages/doctor/DoctorInterface';
 import AdminInterface from './pages/admin/AdminInterface';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import SetPasswordPage from './pages/SetPasswordPage';
 
 export default function SloumaHealthApp() {
   const [userRole, setUserRole] = useState(null);
   const [userData, setUserData] = useState(null);
   const [language, setLanguage] = useState(localStorage.getItem('google_lang') || 'fr');
   const [showVerify, setShowVerify] = useState(window.location.pathname === '/verify-email');
+  const [showSetPassword, setShowSetPassword] = useState(window.location.pathname === '/set-password');
 
 
   useEffect(() => {
@@ -104,6 +106,8 @@ export default function SloumaHealthApp() {
     <>
       {showVerify ? (
         <VerifyEmailPage onGoToLogin={() => { setShowVerify(false); setShowLanding(false); setShowSignup(false); window.history.pushState({}, '', '/'); }} />
+      ) : showSetPassword ? (
+        <SetPasswordPage onGoToLogin={() => { setShowSetPassword(false); setShowLanding(false); setShowSignup(false); window.history.pushState({}, '', '/'); }} />
       ) : showLanding ? (
         <LandingPage
 

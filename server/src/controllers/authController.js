@@ -5,6 +5,7 @@ import Doctor from '../models/Doctor.js';
 import Patient from '../models/Patient.js';
 import Caregiver from '../models/caregiver.js';
 import PendingUser from '../models/PendingUser.js';
+import InviteToken from '../models/InviteToken.js';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import Notification from '../models/Notification.js';
@@ -231,7 +232,7 @@ export const updateProfile = async (req, res) => {
     if (lastname) updateData.lastname = lastname;
 
     const updatedUser = await model.findOneAndUpdate(
-      { $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] },
+      { id: id },
       updateData,
       { returnDocument: 'after' }
     );
@@ -268,7 +269,7 @@ export const changePassword = async (req, res) => {
       return res.status(400).json({ message: 'Invalid role' });
     }
 
-    const user = await model.findOne({ $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] });
+    const user = await model.findOne({ id: id });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -308,7 +309,7 @@ export const changeEmail = async (req, res) => {
       return res.status(400).json({ message: 'Invalid role' });
     }
 
-    const user = await model.findOne({ $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] });
+    const user = await model.findOne({ id: id });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -321,10 +322,65 @@ export const changeEmail = async (req, res) => {
       return res.status(401).json({ message: 'Invalid password' });
     }
 
+    const existingUser = await findUserByEmail(newEmail.toLowerCase());
+    if (existingUser && existingUser.id !== id) {
+      return res.status(400).json({ message: 'Email is already in use by another account.' });
+    }
+
     user.email = newEmail.toLowerCase();
     await user.save();
 
     res.json({ message: 'Email updated successfully', email: user.email });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+export const setPassword = async (req, res) => {
+  try {
+    const { email, token, password } = req.body;
+
+    if (!email || !token || !password) {
+      return res.status(400).json({ message: 'Email, token, and password are required.' });
+    }
+
+    const invite = await InviteToken.findOne({ email: email.toLowerCase() });
+    if (!invite) {
+      return res.status(400).json({ message: 'No invitation found for this email.' });
+    }
+
+    if (invite.used) {
+      return res.status(400).json({ message: 'This invitation has already been used.' });
+    }
+
+    if (Date.now() > new Date(invite.expiresAt).getTime()) {
+      return res.status(400).json({ message: 'This invitation has expired.' });
+    }
+
+    const hashedToken = InviteToken.hashToken(token);
+    if (invite.token !== hashedToken) {
+      return res.status(400).json({ message: 'Invalid invitation token.' });
+    }
+
+    const models = { admin: Admin, doctor: Doctor, patient: Patient, caregiver: Caregiver };
+    const modelKey = invite.role.toLowerCase();
+    const model = models[modelKey];
+    if (!model) {
+      return res.status(400).json({ message: 'Invalid role.' });
+    }
+
+    const user = await model.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    user.password = password;
+    await user.save();
+
+    invite.used = true;
+    await invite.save();
+
+    res.json({ message: 'Password set successfully. You can now log in.' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }

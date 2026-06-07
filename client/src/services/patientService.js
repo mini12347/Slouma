@@ -14,4 +14,6 @@ export const patientService = {
 
   deleteEmergencyContact: (id, contactId) =>
     api.delete(`/patients/${id}/emergency-contacts/${contactId}`),
+
+  getTasks: (id) => api.get(`/patients/${id}/tasks`),
 };

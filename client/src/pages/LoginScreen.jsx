@@ -47,9 +47,9 @@ export default function LoginScreen({ onLoginSuccess, language, setLanguage, onG
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 lg:p-8" dir={isRtl ? 'rtl' : 'ltr'}>
       {onGoToLanding && (
-        <div className={`absolute top-6 ${isRtl ? 'right-6 lg:right-10' : 'left-6 lg:left-10'} z-50`}>
+        <div className="absolute top-6 left-6 lg:left-10 z-50">
           <button onClick={onGoToLanding} className="flex items-center gap-2 px-5 py-2.5 bg-white/80 backdrop-blur-md rounded-2xl shadow-sm hover:shadow-md transition-all border border-slate-200 text-slate-700 text-sm font-bold">
-            <ArrowLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
+            <ArrowLeft className="w-4 h-4" />
             {tc.back}
           </button>
         </div>
@@ -131,7 +131,7 @@ export default function LoginScreen({ onLoginSuccess, language, setLanguage, onG
                 <div className="relative group">
                   <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                     className={`w-full ${isRtl ? 'pr-14 pl-4' : 'pl-14 pr-4'} py-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl focus:bg-white focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all font-medium text-slate-800`}
-                    placeholder="name@example.com" required />
+                    placeholder={ta.emailPlaceholder || "name@example.com"} required />
                   <div className={`absolute top-0 ${isRtl ? 'right-0' : 'left-0'} h-full w-14 flex items-center justify-center`}>
                     <Mail className="w-5 h-5 text-slate-400 group-focus-within:text-teal-500 transition-colors" />
                   </div>

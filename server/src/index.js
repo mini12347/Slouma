@@ -4,6 +4,7 @@ dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
@@ -28,7 +29,8 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors({
+// ✅ Define corsOptions as a variable so it can be reused below
+const corsOptions = {
   origin: function (origin, callback) {
     const allowed = [
       'https://slouma-shmb.vercel.app',
@@ -36,19 +38,24 @@ app.use(cors({
       'http://localhost:3000',
       'http://localhost:5000',
     ];
-    if (!origin || allowed.includes(origin)) {
+    const vercelPreview = /^https:\/\/slouma-shmb.*\.vercel\.app$/;
+    if (!origin || allowed.includes(origin) || vercelPreview.test(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`CORS blocked: ${origin}`));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
-app.options('*', cors());
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-id'],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions)); // ✅ handles preflight, no path-to-regexp crash
+
 app.use(express.json());
 
+// ─── ROUTES ──────────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -67,14 +74,27 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/links', linkingRoutes);
 app.use('/api/videos', videoRoutes);
 
-
-app.use(express.static(path.join(__dirname, '../../client/dist')));
+// ─── STATIC FILES ────────────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use(express.static(path.join(__dirname, '../../client/dist')));
 
+// ─── CATCH-ALL → FRONTEND ────────────────────────────────────────────────────
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, '../../client/dist', 'index.html'));
+  const distIndex = path.join(__dirname, '../../client/dist', 'index.html');
+  if (fs.existsSync(distIndex)) {
+    res.sendFile(distIndex);
+  } else {
+    res.status(200).send(`
+      <!DOCTYPE html><html><head><meta charset="utf-8"/>
+      <title>Slouma Health</title>
+      <script>window.location.replace('http://localhost:5173${req.originalUrl}');</script>
+      <noscript><a href="http://localhost:5173${req.originalUrl}">Click here</a></noscript>
+      </head><body></body></html>
+    `);
+  }
 });
 
+// ─── START ───────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server listening on port ${PORT}`);
 });

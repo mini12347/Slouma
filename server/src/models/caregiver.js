@@ -55,6 +55,10 @@ const CaregiverSchema = mongoose.Schema({
             description: String,
             date: Date,
             status: String,
+            patientID: String,
+            patientName: String,
+            caregiverName: String,
+            type: { type: String },
         }
     ],
     lastActive: { type: Date, default: Date.now },

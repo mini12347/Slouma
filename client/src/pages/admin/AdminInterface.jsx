@@ -21,10 +21,20 @@ import { notificationService } from '../../services/notificationService';
 import jsPDF from "jspdf/dist/jspdf.es.min.js";
 
 const SPECIALTY_CODES = {
+  'General Medicine': 'GEN',
   'Cardiology': 'CARD',
   'Endocrinology': 'ENDO',
   'Neurology': 'NEURO',
-  'General Medicine': 'GEN'
+  'Pediatrics': 'PED',
+  'Dermatology': 'DERM',
+  'Orthopedics': 'ORTH',
+  'Psychiatry': 'PSY',
+  'Ophthalmology': 'OPH',
+  'ENT': 'ENT',
+  'Pulmonology': 'PULM',
+  'Gastroenterology': 'GAST',
+  'Radiology': 'RAD',
+  'Anesthesiology': 'ANES'
 };
 
 const CONDITION_CODES = {
@@ -40,7 +50,7 @@ const CONDITION_TO_SPECIALTY = {
   'Hypertension': 'Cardiology',
   'Diabetes': 'Endocrinology',
   'Alzheimer': 'Neurology',
-  'General': 'General Medicine'
+  'General': 'General'
 };
 
 const COLORS = ['#14b8a6', '#0d9488', '#0f766e', '#134e4a', '#1e293b'];
@@ -276,20 +286,35 @@ function AdminUsers({ admin, language, onAddUser, users, onDeleteUser, onApprove
                   ))}
                 </select>
               </div>
-              <div className="flex justify-end gap-4 pt-4">
-                <button type="button" onClick={() => { setApprovingPatient(null); setSelectedDoctorForApproval(''); }} className="px-6 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-colors">{tc.cancel || 'Cancel'}</button>
+              <div className="flex justify-between items-center pt-4 border-t border-slate-100">
                 <button 
                   type="button" 
-                  disabled={!selectedDoctorForApproval}
                   onClick={() => {
-                    onApproveUser(approvingPatient.id || approvingPatient._id, approvingPatient.role, selectedDoctorForApproval);
-                    setApprovingPatient(null);
-                    setSelectedDoctorForApproval('');
-                  }} 
-                  className="px-8 py-4 bg-teal-600 text-white font-black rounded-2xl shadow-lg shadow-teal-600/25 disabled:opacity-50 hover:bg-teal-700 transition-colors"
+                    if (window.confirm(`${ta.delete} ${approvingPatient.name}?`)) {
+                      onDeleteUser(approvingPatient.role, approvingPatient.id || approvingPatient._id);
+                      setApprovingPatient(null);
+                      setSelectedDoctorForApproval('');
+                    }
+                  }}
+                  className="px-6 py-4 bg-rose-50 text-rose-600 font-black rounded-2xl hover:bg-rose-100 transition-colors"
                 >
-                  {ta.approveAndAssign || 'Approve & Assign'}
+                  {ta.delete}
                 </button>
+                <div className="flex gap-4">
+                  <button type="button" onClick={() => { setApprovingPatient(null); setSelectedDoctorForApproval(''); }} className="px-6 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-colors">{tc.cancel || 'Cancel'}</button>
+                  <button 
+                    type="button" 
+                    disabled={!selectedDoctorForApproval}
+                    onClick={() => {
+                      onApproveUser(approvingPatient.id || approvingPatient._id, approvingPatient.role, selectedDoctorForApproval);
+                      setApprovingPatient(null);
+                      setSelectedDoctorForApproval('');
+                    }} 
+                    className="px-8 py-4 bg-teal-600 text-white font-black rounded-2xl shadow-lg shadow-teal-600/25 disabled:opacity-50 hover:bg-teal-700 transition-colors"
+                  >
+                    {ta.approveAndAssign || 'Approve & Assign'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -412,9 +437,13 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [showAddReportModal, setShowAddReportModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [formError, setFormError] = useState('');
+  const [lastCreatedEmail, setLastCreatedEmail] = useState('');
+  const [lastCreatedRole, setLastCreatedRole] = useState('');
+  const [devInviteLink, setDevInviteLink] = useState('');
 
   const [reportTitle, setReportTitle] = useState('');
   const [reportContent, setReportContent] = useState('');
@@ -453,12 +482,26 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
   const [activityLogs, setActivityLogs] = useState([]);
   const [rawStats, setRawStats] = useState(null);
 
-  const dashboardStats = React.useMemo(() => [
-    { label: ta.totalUsers, value: rawStats ? rawStats.totalUsers.toString() : '0', trend: '+0%', icon: Users, colorClass: 'bg-teal-100 text-teal-700 border-teal-200', gradientClass: 'bg-teal-600' },
-    { label: ta.activeCases, value: rawStats ? rawStats.patientsCount.toString() : '0', trend: '+0%', icon: Activity, colorClass: 'bg-teal-50 text-teal-700 border-teal-200', gradientClass: 'bg-teal-500' },
-    { label: ta.criticalAlerts, value: rawStats ? rawStats.criticalAlertsCount.toString() : '0', trend: '0%', icon: AlertCircle, colorClass: 'bg-rose-100 text-rose-700 border-rose-200', gradientClass: 'bg-rose-500' },
-    { label: ta.systemHealth, value: '100%', trend: ta.optimal, icon: CheckCircle, colorClass: 'bg-teal-50 text-teal-700 border-teal-200', gradientClass: 'bg-teal-500' },
-  ], [ta, rawStats]);
+  const computeTrend = (trends) => {
+    if (!trends || trends.length < 2) return '+0%';
+    const last = trends[trends.length - 1]?.val || 0;
+    const prev = trends[trends.length - 2]?.val || 0;
+    if (prev === 0) return last > 0 ? '+100%' : '+0%';
+    const pct = Math.round(((last - prev) / prev) * 100);
+    return pct >= 0 ? `+${pct}%` : `${pct}%`;
+  };
+
+  const dashboardStats = React.useMemo(() => {
+    const trends = rawStats?.registrationTrends || [];
+    const trendPct = computeTrend(trends);
+    const criticalCount = rawStats?.criticalAlertsCount || 0;
+    return [
+      { label: ta.totalUsers, value: rawStats ? rawStats.totalUsers.toString() : '0', trend: trendPct, icon: Users, colorClass: 'bg-teal-100 text-teal-700 border-teal-200', gradientClass: 'bg-teal-600' },
+      { label: ta.activeCases, value: rawStats ? rawStats.patientsCount.toString() : '0', trend: trendPct, icon: Activity, colorClass: 'bg-teal-50 text-teal-700 border-teal-200', gradientClass: 'bg-teal-500' },
+      { label: tc.roles.doctor, value: rawStats ? rawStats.doctorsCount.toString() : '0', trend: trendPct, icon: Stethoscope, colorClass: 'bg-teal-50 text-teal-700 border-teal-200', gradientClass: 'bg-teal-500' },
+      { label: ta.criticalAlerts, value: criticalCount.toString(), trend: criticalCount > 0 ? `${criticalCount} non lues` : 'Aucune', icon: AlertCircle, colorClass: criticalCount > 0 ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-teal-50 text-teal-700 border-teal-200', gradientClass: criticalCount > 0 ? 'bg-rose-500' : 'bg-teal-500' },
+    ];
+  }, [ta, tc, rawStats]);
 
   const refreshDashboard = () => {
     if (admin) {
@@ -590,13 +633,15 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
   const handleSubmitAddUser = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    const email = formData.get('email');
+    
     const userData = {
       name: formData.get('name'),
       lastname: formData.get('lastname') || 'Utilisateur',
-      email: formData.get('email'),
+      email: email,
       phone: formData.get('phone') || '00000000',
       address: formData.get('address') || '',
-      password: formData.get('password') || 'password123',
+      password: 'placeholder',
       role: newUserRole,
       status: formData.get('status') || 'active',
       id: generatedId
@@ -625,10 +670,17 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
     }
 
     try {
-      await adminService.createUser(userData, admin?.id || admin?._id);
+      const res = await adminService.createUser(userData, admin?.id || admin?._id);
       setShowAddUserModal(false);
       setFormError('');
       refreshDashboard();
+      
+      setLastCreatedEmail(email);
+      setLastCreatedRole(newUserRole);
+      setShowInviteModal(true);
+      if (res?.devInviteLink) {
+        setDevInviteLink(res.devInviteLink);
+      }
     } catch (err) {
       setFormError(err.response?.data?.message || err.message);
     }
@@ -877,7 +929,7 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
                     <div className="space-y-5">
                       {(activityLogs.length > 0 ? activityLogs : [
                       { date: new Date(), msg: ta.welcomeMsg, user: ta.system }
-                      ]).map((log, i) => (
+                      ]).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10).map((log, i) => (
                         <div key={i} className="flex items-center gap-5 p-4 rounded-2xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-colors">
                           <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-600 text-sm shadow-inner shrink-0">
                             {log.user.charAt(0)}
@@ -941,7 +993,7 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
               <MessagesSection 
                 language={language} 
                 userRole="admin"
-                currentUser={{ id: admin?._id || admin?.id, name: admin?.name || 'Admin', role: 'admin' }} 
+                currentUser={{ id: admin?.id || admin?._id, name: admin?.name || 'Admin', role: 'admin' }} 
               />
             )}
           </div>
@@ -1071,7 +1123,7 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
                     >
                       <option value="">-- Select a Doctor --</option>
                       {usersList
-                        .filter(u => u.role === 'Doctor' && (!newPatientCondition || !CONDITION_TO_SPECIALTY[newPatientCondition] || u.specialty === CONDITION_TO_SPECIALTY[newPatientCondition]))
+                        .filter(u => u.role === 'Doctor' && (!newPatientCondition || !CONDITION_TO_SPECIALTY[newPatientCondition] || u.department === CONDITION_TO_SPECIALTY[newPatientCondition]))
                         .map(doc => (
                           <option key={doc.id || doc._id} value={doc.id || doc._id}>
                             Dr. {doc.name} {doc.lastname && doc.lastname !== 'Utilisateur' ? doc.lastname : ''}
@@ -1120,6 +1172,57 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showInviteModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-teal-600" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-800 mb-2">{ta.userCreated || 'User Created Successfully'}</h3>
+              <p className="text-slate-600 font-bold">{ta.inviteSent || 'An invitation email has been sent to:'}</p>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{ta.email}</label>
+                <p className="font-bold text-slate-800 text-lg">{lastCreatedEmail}</p>
+              </div>
+              <div className="bg-teal-50/50 p-4 rounded-2xl border border-teal-200">
+                <p className="text-sm font-bold text-teal-800 text-center">{ta.inviteInstruction || 'They will receive an email with a link to set their own password.'}</p>
+              </div>
+              {devInviteLink && (
+                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200">
+                  <label className="block text-xs font-black text-amber-600 uppercase tracking-widest mb-2">Dev Mode — Invite Link</label>
+                  <p className="text-xs font-mono text-amber-800 break-all">{devInviteLink}</p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(devInviteLink);
+                      alert('Link copied!');
+                    }}
+                    className="mt-2 text-xs font-bold text-amber-700 underline"
+                  >
+                    Copy link
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            <button 
+              onClick={() => {
+                setShowInviteModal(false);
+                setLastCreatedEmail('');
+                setLastCreatedRole('');
+                setDevInviteLink('');
+              }}
+              className="w-full px-6 py-4 bg-teal-600 text-white font-black rounded-2xl shadow-lg shadow-teal-600/25 hover:bg-teal-700 transition-colors"
+            >
+              {ta.done || 'Done'}
+            </button>
           </div>
         </div>
       )}
@@ -1237,7 +1340,7 @@ export default function AdminInterface({ admin, onLogout, language, setLanguage,
                     >
                       <option value="">-- Select a Doctor --</option>
                       {usersList
-                        .filter(u => u.role === 'Doctor' && (!editPatientCondition || !CONDITION_TO_SPECIALTY[editPatientCondition] || u.specialty === CONDITION_TO_SPECIALTY[editPatientCondition]))
+                        .filter(u => u.role === 'Doctor' && (!editPatientCondition || !CONDITION_TO_SPECIALTY[editPatientCondition] || u.department === CONDITION_TO_SPECIALTY[editPatientCondition]))
                         .map(doc => (
                           <option key={doc.id || doc._id} value={doc.id || doc._id}>
                             Dr. {doc.name} {doc.lastname && doc.lastname !== 'Utilisateur' ? doc.lastname : ''}

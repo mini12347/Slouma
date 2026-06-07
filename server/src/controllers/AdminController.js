@@ -7,8 +7,10 @@ import PendingUser from "../models/PendingUser.js";
 import Notification from "../models/Notification.js";
 import Message from "../models/Message.js";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import cache from "../config/cache.js";
-
+import InviteToken from "../models/InviteToken.js";
+import { sendInviteEmail } from "../services/emailService.js";
 
 const createAdmin = async (req, res) => {
     const admin = req.body;
@@ -99,8 +101,10 @@ const createUser = async (req, res) => {
     const { role, userData } = req.body;
     try {
         let newUser;
+        const randomPassword = crypto.randomBytes(12).toString('hex');
         const baseData = { 
-            ...userData, 
+            ...userData,
+            password: randomPassword,
             status: userData.status || 'active',
             lastname: userData.lastname || 'User',
             phone: userData.phone || '00000000',
@@ -143,6 +147,21 @@ const createUser = async (req, res) => {
             }
         }
 
+        // Generate invite token and send email
+        const rawToken = InviteToken.generateToken();
+        const hashedToken = InviteToken.hashToken(rawToken);
+        await InviteToken.create({
+            email: newUser.email,
+            token: hashedToken,
+            role,
+            expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+        });
+
+        const baseUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host')}`;
+        const inviteLink = `${baseUrl}/set-password?email=${encodeURIComponent(newUser.email)}&token=${rawToken}`;
+
+        const emailResult = await sendInviteEmail(newUser.email, inviteLink, newUser.name);
+
         // Create Welcome Notification
         const welcomeNotification = new Notification({
             id: `NTF-WELCOME-${Date.now()}-${newUser.id}`,
@@ -176,7 +195,12 @@ const createUser = async (req, res) => {
         // Invalidate all admin dashboard caches
         cache.flushAll();
 
-        res.status(201).json(newUser);
+        const isDevMode = emailResult.status === 'dev-mode' || emailResult.status === 'fallback-mode';
+        res.status(201).json({
+            message: 'User created successfully. An invitation email has been sent.',
+            email: newUser.email,
+            ...(isDevMode && { devInviteLink: inviteLink }),
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -573,6 +597,7 @@ const getAdminDashboard = async (req, res) => {
                     name: (d.name || '') + ' ' + (d.lastname || ''), 
                     role: 'Doctor', 
                     status: d.status || 'active', 
+                    specialty: d.specialty || 'General',
                     department: d.specialty || 'General', 
                     lastActive: d.lastActive || d.updatedAt, 
                     createdAt: d.createdAt 

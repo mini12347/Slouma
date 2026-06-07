@@ -103,8 +103,12 @@ const getCaregiverDashboard = async (req, res) => {
 
         // Fetch doctors for these patients
         const doctorIDs = [...new Set(myPatients.flatMap(p => p.doctorIDs || []))];
+        const validObjectIds = doctorIDs.filter(did => mongoose.Types.ObjectId.isValid(did));
         const doctors = await Doctor.find({
-            $or: [{ id: { $in: doctorIDs } }, { _id: { $in: doctorIDs } }]
+            $or: [
+                { id: { $in: doctorIDs } },
+                { _id: { $in: validObjectIds.map(id => new mongoose.Types.ObjectId(id)) } }
+            ]
         });
 
         // Fetch appointments for these patients

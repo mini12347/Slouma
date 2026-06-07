@@ -1,4 +1,4 @@
-import { createDoctor, getDoctors, getDoctorById, updateDoctor, deleteDoctor, getDoctorDashboard, addPrescription, updatePrescription, deletePrescription, addAppointment, deleteAppointment } from "../controllers/DoctorController.js";
+import { createDoctor, getDoctors, getDoctorById, updateDoctor, deleteDoctor, getDoctorDashboard, addPrescription, updatePrescription, deletePrescription, addAppointment, deleteAppointment, getAvailablePatients } from "../controllers/DoctorController.js";
 import express from "express";
 const router = express.Router();
 router.post('/', createDoctor);
@@ -7,6 +7,7 @@ router.get('/:id', getDoctorById);
 router.put('/:id', updateDoctor);
 router.delete('/:id', deleteDoctor);
 router.get('/:id/dashboard', getDoctorDashboard);
+router.get('/:id/available-patients', getAvailablePatients);
 router.post('/:id/prescription', addPrescription);
 router.put('/:id/prescription/:prescriptionId', updatePrescription);
 router.delete('/:id/prescription/:prescriptionId', deletePrescription);

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Activity from '../models/Activity.js';
 import Patient from '../models/Patient.js';
 import cache from '../config/cache.js';
@@ -24,7 +25,7 @@ export const createActivity = async (req, res) => {
         
         // Optionally update patient's last active or specific fields
         await Patient.findOneAndUpdate(
-            { $or: [{ id: activityData.patientID }, { _id: activityData.patientID }] },
+            { $or: [...(mongoose.Types.ObjectId.isValid(activityData.patientID) ? [{ _id: activityData.patientID }] : []), { id: activityData.patientID }] },
             { lastActive: new Date() }
         );
         

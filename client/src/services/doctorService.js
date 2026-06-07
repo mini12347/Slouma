@@ -10,6 +10,7 @@ export const doctorService = {
   deletePrescription: (id, prescriptionId) =>
     api.delete(`/doctors/${id}/prescription/${prescriptionId}`),
 
+  getAvailablePatients: (id) => api.get(`/doctors/${id}/available-patients`),
   addPatient: (payload) => api.post('/patients', payload),
   updatePatient: (id, payload) => api.put(`/patients/${id}`, payload),
   deletePatient: (id) => api.delete(`/patients/${id}`),

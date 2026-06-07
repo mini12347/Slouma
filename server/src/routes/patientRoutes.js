@@ -1,5 +1,5 @@
 import express from 'express';
-import { getPatients, getPatientById, createPatient, updatePatient, deletePatient, takeMedicine, addVitals, addEmergencyContact, deleteEmergencyContact } from '../controllers/patientController.js';
+import { getPatients, getPatientById, createPatient, updatePatient, deletePatient, takeMedicine, addVitals, addEmergencyContact, deleteEmergencyContact, getPatientTasks } from '../controllers/patientController.js';
 
 const routerP = express.Router();
 
@@ -12,5 +12,6 @@ routerP.post('/:id/medicine', takeMedicine);
 routerP.post('/:id/vitals', addVitals);
 routerP.post('/:id/emergency-contacts', addEmergencyContact);
 routerP.delete('/:id/emergency-contacts/:contactId', deleteEmergencyContact);
+routerP.get('/:id/tasks', getPatientTasks);
 
 export default routerP;

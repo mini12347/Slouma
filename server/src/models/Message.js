@@ -33,22 +33,18 @@ MessageSchema.pre('save', async function () {
   const senderId = this.senderID;
   const receiverId = this.receiverID;
 
+  const senderQuery = [{ id: senderId }];
+  if (mongoose.Types.ObjectId.isValid(senderId)) senderQuery.push({ _id: senderId });
+
   // Check if the sender is a Patient
-  const patient = await Patient.findOne({
-    $or: [
-      { id: senderId },
-      { _id: mongoose.Types.ObjectId.isValid(senderId) ? senderId : null }
-    ]
-  });
+  const patient = await Patient.findOne({ $or: senderQuery });
 
   if (patient) {
+    const receiverQuery = [{ id: receiverId }];
+    if (mongoose.Types.ObjectId.isValid(receiverId)) receiverQuery.push({ _id: receiverId });
+
     // Find the receiver's record as Doctor
-    const doctor = await Doctor.findOne({
-      $or: [
-        { id: receiverId },
-        { _id: mongoose.Types.ObjectId.isValid(receiverId) ? receiverId : null }
-      ]
-    });
+    const doctor = await Doctor.findOne({ $or: receiverQuery });
     if (doctor) {
       const isLinked = (patient.doctorIDs || []).includes(doctor.id) || 
                        (patient.doctorIDs || []).includes(doctor._id.toString());
@@ -59,12 +55,7 @@ MessageSchema.pre('save', async function () {
     }
 
     // Find the receiver's record as Caregiver
-    const caregiver = await Caregiver.findOne({
-      $or: [
-        { id: receiverId },
-        { _id: mongoose.Types.ObjectId.isValid(receiverId) ? receiverId : null }
-      ]
-    });
+    const caregiver = await Caregiver.findOne({ $or: receiverQuery });
     if (caregiver) {
       const isLinked = (patient.caregiverIDs || []).includes(caregiver.id) || 
                        (patient.caregiverIDs || []).includes(caregiver._id.toString());
@@ -75,12 +66,7 @@ MessageSchema.pre('save', async function () {
     }
 
     // Find the receiver's record as Admin
-    const admin = await Admin.findOne({
-      $or: [
-        { id: receiverId },
-        { _id: mongoose.Types.ObjectId.isValid(receiverId) ? receiverId : null }
-      ]
-    });
+    const admin = await Admin.findOne({ $or: receiverQuery });
     if (admin) {
       return;
     }

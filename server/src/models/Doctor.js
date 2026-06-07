@@ -82,6 +82,7 @@ const DoctorSchema = new mongoose.Schema({
     patientIDs: [String],
     caregiverIDs: [String],
     appointments: [AppointmentSchema],
+    specialty: { type: String, default: 'General' },
     lastActive: { type: Date, default: Date.now },
     isEmailVerified: { type: Boolean, default: false },
     verificationToken: String,

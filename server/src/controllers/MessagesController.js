@@ -101,12 +101,9 @@ export const getContacts = async (req, res) => {
         };
 
         if (role === 'doctor') {
-            const doctor = await Doctor.findOne({ 
-                $or: [
-                    { id: { $regex: new RegExp(`^${id}$`, 'i') } }, 
-                    { _id: mongoose.Types.ObjectId.isValid(id) ? id : null }
-                ] 
-            });
+            const doctorQuery = [{ id: { $regex: new RegExp(`^${id}$`, 'i') } }];
+            if (mongoose.Types.ObjectId.isValid(id)) doctorQuery.push({ _id: id });
+            const doctor = await Doctor.findOne({ $or: doctorQuery });
             if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
 
             const allPatients = await Patient.find({});
@@ -133,12 +130,9 @@ export const getContacts = async (req, res) => {
             ];
 
         } else if (role === 'caregiver') {
-            const caregiver = await Caregiver.findOne({ 
-                $or: [
-                    { id: { $regex: new RegExp(`^${id}$`, 'i') } }, 
-                    { _id: mongoose.Types.ObjectId.isValid(id) ? id : null }
-                ] 
-            });
+            const caregiverQuery = [{ id: { $regex: new RegExp(`^${id}$`, 'i') } }];
+            if (mongoose.Types.ObjectId.isValid(id)) caregiverQuery.push({ _id: id });
+            const caregiver = await Caregiver.findOne({ $or: caregiverQuery });
             if (!caregiver) return res.status(404).json({ message: 'Caregiver not found' });
 
             const allPatients = await Patient.find({});
@@ -163,12 +157,9 @@ export const getContacts = async (req, res) => {
             ];
 
         } else if (role === 'patient') {
-            const patient = await Patient.findOne({ 
-                $or: [
-                    { id: { $regex: new RegExp(`^${id}$`, 'i') } }, 
-                    { _id: mongoose.Types.ObjectId.isValid(id) ? id : null }
-                ] 
-            });
+            const patientQuery = [{ id: { $regex: new RegExp(`^${id}$`, 'i') } }];
+            if (mongoose.Types.ObjectId.isValid(id)) patientQuery.push({ _id: id });
+            const patient = await Patient.findOne({ $or: patientQuery });
             if (!patient) return res.status(404).json({ message: 'Patient not found' });
 
             const drIDs = patient.doctorIDs || [];
@@ -236,6 +227,21 @@ export const getContacts = async (req, res) => {
         res.status(200).json(contacts);
     } catch (error) {
         console.error('getContacts error:', error);
+        res.status(500).json({ message: error.message });
+    }
+}
+
+export const blockUser = async (req, res) => {
+    try {
+        const { userId, contactId } = req.params;
+        const result = await Message.deleteMany({
+            $or: [
+                { senderID: userId, receiverID: contactId },
+                { senderID: contactId, receiverID: userId }
+            ]
+        });
+        res.status(200).json({ message: `Blocked. ${result.deletedCount} messages deleted.` });
+    } catch (error) {
         res.status(500).json({ message: error.message });
     }
 }

@@ -39,7 +39,13 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
   const [search, setSearch] = useState('');
   const [showAddPatientModal, setShowAddPatientModal] = useState(false);
   const [editingPatient, setEditingPatient] = useState(null);
+  const [availablePatients, setAvailablePatients] = useState([]);
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
+  const [selectedAvailable, setSelectedAvailable] = useState(new Set());
   const isRtl = language === 'tn' || language === 'ar';
+  const tr = translations[language] || translations.fr;
+  const td = tr.doctor;
+  const tc = tr.common;
 
   const filteredPatients = (patients || []).filter(p => {
     const searchLower = search.toLowerCase();
@@ -51,23 +57,30 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
     );
   });
 
-  const handleAddPatient = async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
+  const handleAddPatient = async () => {
+    setShowAddPatientModal(true);
+    setLoadingAvailable(true);
+    setSelectedAvailable(new Set());
     try {
-      await doctorService.addPatient({
-        name: formData.get('name'),
-        lastname: formData.get('lastname') || 'Patient',
-        email: formData.get('email'),
-        phone: formData.get('phone') || '00000000',
-        bloodGroup: formData.get('bloodGroup') || 'O+',
-        dateOfBirth: formData.get('dateOfBirth') || new Date(),
-        gender: formData.get('gender') === 'Homme' ? 'Male' : 'Female',
-        currentConditions: formData.get('conditions').split(',').map(s=>s.trim()).filter(Boolean),
-        role: 'Patient',
-        doctorIDs: [doctorId],
-        password: 'password123'
-      });
+      const res = await doctorService.getAvailablePatients(doctorId);
+      setAvailablePatients(res || []);
+    } catch (err) {
+      console.error('Failed to load available patients:', err);
+      setAvailablePatients([]);
+    } finally {
+      setLoadingAvailable(false);
+    }
+  };
+
+  const handleLinkPatients = async () => {
+    if (selectedAvailable.size === 0) return;
+    try {
+      for (const pid of selectedAvailable) {
+        const patient = availablePatients.find(p => (p._id || p.id) === pid);
+        const existingIDs = patient?.doctorIDs || [];
+        const mergedIDs = [...new Set([...existingIDs, doctorId])];
+        await doctorService.updatePatient(pid, { doctorIDs: mergedIDs });
+      }
       setShowAddPatientModal(false);
       fetchDashboard();
     } catch (err) { alert(err.message); }
@@ -83,15 +96,6 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
     }
     try {
       await doctorService.updatePatient(String(targetId), {
-        name: formData.get('name'),
-        lastname: formData.get('lastname'),
-        email: formData.get('email'),
-        phone: formData.get('phone'),
-        dateOfBirth: formData.get('dateOfBirth'),
-        gender: formData.get('gender') === 'Homme' ? 'Male' : 'Female',
-        bloodGroup: formData.get('bloodGroup'),
-        address: formData.get('address'),
-        currentConditions: formData.get('conditions').split(',').map(s=>s.trim()).filter(Boolean),
         healthStatus: formData.get('healthStatus')
       });
       setEditingPatient(null);
@@ -120,23 +124,23 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between gap-4 items-center">
         <h2 className="text-3xl font-black text-slate-800 tracking-tight">
-          Liste des patients
+          {td.patientList}
         </h2>
         <div className="flex gap-4 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-72">
             <Search className={`w-5 h-5 text-slate-400 absolute top-1/2 -translate-y-1/2 ${isRtl ? 'right-4' : 'left-4'}`} />
             <input 
               type="text" 
-              placeholder="Rechercher des patients"
+              placeholder={td.searchPatients}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className={`w-full ${isRtl ? 'pr-12 pl-4' : 'pl-12 pr-4'} py-3.5 bg-white border border-slate-200 rounded-2xl focus:border-teal-600 outline-none transition-all shadow-sm font-semibold`}
             />
           </div>
-          <button onClick={() => setShowAddPatientModal(true)} className="px-5 py-3.5 bg-teal-700 hover:bg-teal-800 text-white shadow-lg shadow-teal-700/20 font-bold rounded-2xl flex items-center gap-2 transition-all">
-            <UserPlus className="w-5 h-5" />
-            <span className="hidden sm:inline">Ajouter un patient</span>
-          </button>
+<button onClick={handleAddPatient} className="px-5 py-3.5 bg-teal-700 hover:bg-teal-800 text-white shadow-lg shadow-teal-700/20 font-bold rounded-2xl flex items-center gap-2 transition-all">
+    <UserPlus className="w-5 h-5" />
+    <span className="hidden sm:inline">{td.addPatient}</span>
+</button>
         </div>
       </div>
 
@@ -145,11 +149,11 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-100">
-                <th className="px-6 py-5 font-black">Utilisateur</th>
-                <th className="px-6 py-5 font-black">Conditions</th>
-                <th className="px-6 py-5 font-black">Statut</th>
-                <th className="px-6 py-5 font-black">Dernière visite</th>
-                <th className="px-6 py-5 font-black text-right">Actions</th>
+                <th className="px-6 py-5 font-black">{td.user}</th>
+                <th className="px-6 py-5 font-black">{td.conditions}</th>
+                <th className="px-6 py-5 font-black">{td.status}</th>
+                <th className="px-6 py-5 font-black">{td.lastVisit}</th>
+                <th className="px-6 py-5 font-black text-right">{td.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80">
@@ -163,7 +167,7 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
                       <div>
                         <p className="font-bold text-slate-800 text-base">{p.name}</p>
                         <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                          {p.dateOfBirth ? Math.floor((new Date() - new Date(p.dateOfBirth)) / 31557600000) : 'N/A'} {language === 'en' || language === 'fr' ? 'yrs' : 'سنة'} • {p.gender}
+                          {p.dateOfBirth ? Math.floor((new Date() - new Date(p.dateOfBirth)) / 31557600000) : 'N/A'} {tc.years} • {p.gender}
                         </p>
                       </div>
                     </div>
@@ -192,13 +196,13 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
                         onClick={() => setEditingPatient(p)}
                         className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 hover:text-teal-700 transition-colors"
                       >
-                        Éditer
+                        {td.edit}
                       </button>
                       <button 
                         onClick={() => handleDeletePatient(p)}
                         className="px-4 py-2 bg-rose-50 text-rose-600 text-xs font-black rounded-xl border border-rose-100 hover:bg-rose-100 transition-colors"
                       >
-                        Supprimer
+                        {td.delete}
                       </button>
                     </div>
                   </td>
@@ -213,145 +217,76 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
           <div className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border border-slate-100 my-8">
             <div className="flex justify-between items-center mb-8">
-              <h3 className="text-2xl font-black text-slate-800">Ajouter un patient</h3>
+              <h3 className="text-2xl font-black text-slate-800">{td.addExistingPatient}</h3>
               <button onClick={() => setShowAddPatientModal(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
                 <XCircle className="w-8 h-8" />
               </button>
             </div>
-            <form onSubmit={handleAddPatient} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nom</label>
-                  <input type="text" name="name" placeholder="Prénom" required className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Prénom</label>
-                  <input type="text" name="lastname" placeholder="Nom de famille" required className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
-                  <input type="email" name="email" required className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Téléphone</label>
-                  <input type="tel" name="phone" required pattern="^[0-9]{8}$" maxLength="8" title="Veuillez entrer un numéro de téléphone tunisien valide (8 chiffres)" className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Date de Naissance</label>
-                  <input type="date" name="dateOfBirth" required className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Sexe</label>
-                  <select name="gender" className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800">
-                    <option value="Homme">Homme</option>
-                    <option value="Femme">Femme</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Groupe Sanguin</label>
-                  <select name="bloodGroup" className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800">
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2 space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Conditions (séparées par virgule)</label>
-                  <input type="text" name="conditions" className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" placeholder="Ex: Diabète, Hypertension" />
-                </div>
+            {loadingAvailable ? (
+              <div className="text-center py-12 text-slate-400 font-bold">{td.loading}</div>
+            ) : availablePatients.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-slate-400 font-bold text-lg mb-2">{td.noPatientAvailable}</p>
+                <p className="text-slate-300 text-sm">{td.noPatientAvailableDesc}</p>
               </div>
-              <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
-                <button type="button" onClick={() => setShowAddPatientModal(false)} className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-colors">
-                  Annuler
-                </button>
-                <button type="submit" className="px-8 py-3.5 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-2xl shadow-lg shadow-teal-600/25 transition-all">
-                  Ajouter
-                </button>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {availablePatients.map(p => (
+                  <label key={p._id || p.id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedAvailable.has(p._id || p.id) ? 'border-teal-500 bg-teal-50' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}>
+                    <input type="checkbox" checked={selectedAvailable.has(p._id || p.id)} onChange={() => {
+                      const id = p._id || p.id;
+                      const next = new Set(selectedAvailable);
+                      if (next.has(id)) next.delete(id); else next.add(id);
+                      setSelectedAvailable(next);
+                    }} className="w-5 h-5 accent-teal-600" />
+                    <div className="flex-1">
+                      <p className="font-bold text-slate-800">{p.name} {p.lastname || ''}</p>
+                      <p className="text-sm text-slate-500">{p.currentConditions?.join(', ') || 'Aucune condition'}</p>
+                    </div>
+                    <span className="text-xs font-bold text-slate-400 uppercase">{p.id}</span>
+                  </label>
+                ))}
               </div>
-            </form>
+            )}
+            <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 mt-6">
+              <button type="button" onClick={() => setShowAddPatientModal(false)} className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-colors">
+                {td.cancel}
+              </button>
+              <button type="button" onClick={handleLinkPatients} disabled={selectedAvailable.size === 0} className="px-8 py-3.5 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-2xl shadow-lg shadow-teal-600/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                {td.add} ({selectedAvailable.size})
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {editingPatient && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
-          <div className="bg-white rounded-3xl p-8 max-w-xl w-full shadow-2xl border border-slate-100 my-8">
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-slate-100 my-8">
             <div className="flex justify-between items-center mb-8">
-              <h3 className="text-2xl font-black text-slate-800">Éditer le patient</h3>
+              <div>
+                <h3 className="text-2xl font-black text-slate-800">{td.editStatus}</h3>
+                <p className="text-sm text-slate-500 mt-1">{editingPatient.name} — {editingPatient.id}</p>
+              </div>
               <button onClick={() => setEditingPatient(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
                 <XCircle className="w-8 h-8" />
               </button>
             </div>
             <form onSubmit={handleEditPatient} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nom</label>
-                  <input type="text" name="name" defaultValue={editingPatient.name?.split(' ')[0]} required className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Prénom</label>
-                  <input type="text" name="lastname" defaultValue={editingPatient.lastname || editingPatient.name?.split(' ')[1] || ''} required className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
-                  <input type="email" name="email" defaultValue={editingPatient.email} required className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Téléphone</label>
-                  <input type="tel" name="phone" defaultValue={editingPatient.phone} required pattern="^[0-9]{8}$" maxLength="8" title="Veuillez entrer un numéro de téléphone tunisien valide (8 chiffres)" className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Date de Naissance</label>
-                  <input type="date" name="dateOfBirth" defaultValue={editingPatient.dateOfBirth ? new Date(editingPatient.dateOfBirth).toISOString().split('T')[0] : ''} required className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Sexe</label>
-                  <select name="gender" defaultValue={editingPatient.gender === 'Male' ? 'Homme' : 'Femme'} className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800">
-                    <option value="Homme">Homme</option>
-                    <option value="Femme">Femme</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Groupe Sanguin</label>
-                  <select name="bloodGroup" defaultValue={editingPatient.bloodGroup || 'O+'} className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800">
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Statut de santé</label>
-                  <select name="healthStatus" defaultValue={editingPatient.healthStatus || editingPatient.status} className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800">
-                    <option value="stable">Stable</option>
-                    <option value="surveillance">Surveillance</option>
-                    <option value="critique">Critique</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2 space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Adresse</label>
-                  <input type="text" name="address" defaultValue={editingPatient.address} className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" placeholder="Ex: 123 Rue de la Liberté, Tunis" />
-                </div>
-                <div className="md:col-span-2 space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Conditions (séparées par virgule)</label>
-                  <input type="text" name="conditions" defaultValue={editingPatient.conditions?.join(', ')} className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" placeholder="Ex: Diabète, Hypertension" />
-                </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{td.healthStatus}</label>
+                <select name="healthStatus" defaultValue={editingPatient.healthStatus || editingPatient.status || 'stable'} className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800">
+                  <option value="stable">Stable</option>
+                  <option value="surveillance">Surveillance</option>
+                  <option value="critique">Critique</option>
+                </select>
               </div>
               <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
                 <button type="button" onClick={() => setEditingPatient(null)} className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-colors">
-                  Annuler
+                  {td.cancel}
                 </button>
                 <button type="submit" className="px-8 py-3.5 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-2xl shadow-lg shadow-teal-600/25 transition-all">
-                  Enregistrer
+                  {td.save}
                 </button>
               </div>
             </form>
@@ -362,10 +297,13 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
   );
 }
 
-  const DoctorDashboard = ({ language, patients, appointments, prescriptions, notifications, doctorId, fetchDashboard }) => {
+  const DoctorDashboard = ({ language, patients, appointments, prescriptions, notifications, doctorId, fetchDashboard, doctorName }) => {
     const isRtl = language === 'tn' || language === 'ar';
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [showAddAppointment, setShowAddAppointment] = useState(false);
+    const tr = translations[language] || translations.fr;
+    const td = tr.doctor;
+    const tc = tr.common;
 
     const handleAddAppointment = async (e) => {
       e.preventDefault();
@@ -379,13 +317,13 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
       todayAtMidnight.setHours(0, 0, 0, 0);
 
       if (appDate < todayAtMidnight) {
-        alert(language === 'fr' ? "Impossible de prendre un rendez-vous dans le passé" : "Cannot book appointments in the past");
+        alert(td.appointmentPast);
         return;
       }
 
       const [hours, minutes] = timeStr.split(':').map(Number);
       if (hours < 8 || (hours >= 21 && minutes > 0) || hours > 21) {
-        alert(language === 'fr' ? "Les rendez-vous doivent être entre 08:00 et 21:00" : "Appointments must be between 08:00 and 21:00");
+        alert(td.appointmentTimeRange);
         return;
       }
 
@@ -393,7 +331,7 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
         const appTime = new Date();
         appTime.setHours(hours, minutes, 0, 0);
         if (appTime < now) {
-          alert(language === 'fr' ? "Impossible de prendre un rendez-vous à une heure déjà passée aujourd'hui" : "Cannot book a time that has already passed today");
+          alert(td.appointmentTimePassed);
           return;
         }
       }
@@ -435,47 +373,134 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
       const doc = new jsPDF();
       const tr = translations[language] || translations.fr;
       const td = tr.doctor;
-      
+      const tc = tr.common;
+
+      const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+
+      const weekApps = appointments.filter(a => {
+        if (!a.date) return false;
+        const d = new Date(a.date);
+        return d >= startOfWeek && d <= endOfWeek;
+      });
+
+      const grouped = {};
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(startOfWeek);
+        d.setDate(startOfWeek.getDate() + i);
+        const key = d.toDateString();
+        grouped[key] = { label: dayNames[d.getDay()], date: d, apps: [] };
+      }
+      weekApps.forEach(a => {
+        const d = new Date(a.date);
+        const key = d.toDateString();
+        if (grouped[key]) grouped[key].apps.push(a);
+      });
+
       doc.setFontSize(22);
       doc.setTextColor(20, 184, 166);
-      doc.text("Planning des Rendez-vous", 105, 20, { align: "center" });
-      
+      doc.text(td.viewSchedule || "Weekly Schedule", 105, 20, { align: "center" });
+
       doc.setDrawColor(20, 184, 166);
       doc.line(20, 25, 190, 25);
-      
+
       doc.setFontSize(12);
       doc.setTextColor(100, 116, 139);
-      doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 35);
-      doc.text(`Médecin: Dr. Mohamed Ahmed`, 20, 42);
-      
+      const dateRange = `${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}`;
+      doc.text(dateRange, 105, 34, { align: "center" });
+      const drFullName = doctorName || 'Dr. Mohamed Ahmed';
+      doc.text(drFullName, 105, 42, { align: "center" });
+
       doc.line(20, 48, 190, 48);
-      
-      let y = 60;
-      appointments.forEach((appt, index) => {
-        if (y > 270) {
+
+      let y = 58;
+      const pageWidth = 190;
+      const margin = 20;
+      const colTime = 30;
+      const colPatient = 75;
+      const colType = 130;
+      const colDur = 170;
+
+      for (const key of Object.keys(grouped)) {
+        const day = grouped[key];
+        if (y > 255) {
           doc.addPage();
           y = 20;
         }
-        doc.setFontSize(14);
-        doc.setTextColor(30, 41, 59);
-        doc.text(`${appt.time} - ${appt.patient}`, 20, y);
-        doc.setFontSize(10);
-        doc.setTextColor(100, 116, 139);
-        doc.text(`Type: ${appt.type} | Durée: ${appt.duration}`, 20, y + 7);
-        y += 20;
-      });
-      
+
+        doc.setFillColor(240, 248, 250);
+        doc.rect(margin, y - 3, pageWidth - margin * 2, 10, 'F');
+        doc.setFontSize(12);
+        doc.setFont(doc.getFont().fontName, 'bold');
+        doc.setTextColor(20, 184, 166);
+        doc.text(day.label + ' — ' + day.date.toLocaleDateString(), margin, y + 4);
+        y += 14;
+
+        if (day.apps.length === 0) {
+          doc.setFontSize(10);
+          doc.setFont(doc.getFont().fontName, 'normal');
+          doc.setTextColor(156, 163, 175);
+          doc.text(td.noAppointments || 'No appointments', margin + 4, y + 4);
+          y += 10;
+        } else {
+          day.apps.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+          for (const appt of day.apps) {
+            if (y > 270) {
+              doc.addPage();
+              y = 20;
+            }
+            doc.setFontSize(10);
+            doc.setFont(doc.getFont().fontName, 'bold');
+            doc.setTextColor(30, 41, 59);
+            doc.text(appt.time || '', colTime, y);
+            doc.text(appt.patient || '', colPatient, y);
+            doc.setFont(doc.getFont().fontName, 'normal');
+            doc.setTextColor(100, 116, 139);
+            doc.text(appt.type || '', colType, y);
+            doc.text(appt.duration || '', colDur, y);
+            y += 8;
+          }
+        }
+        y += 4;
+      }
+
       doc.save(`Planning_${new Date().toISOString().split('T')[0]}.pdf`);
     };
+
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+    const newPatients = patients.filter(p => p.createdAt && new Date(p.createdAt) > thirtyDaysAgo).length;
+    const patientTrend = patients.length > 0 ? `+${Math.round(newPatients / patients.length * 100)}% nouveaux` : 'Aucun';
+
+    const upcomingAppts = appointments.filter(a => a.date && new Date(a.date) > now).length;
+    const apptTrend = appointments.length > 0 ? `+${Math.round(upcomingAppts / appointments.length * 100)}% à venir` : 'Aucun';
+
+    const activePrescs = prescriptions.filter(p => p.status === 'Actif' || p.status === 'active').length;
+    const prescTrend = prescriptions.length > 0 ? `+${Math.round(activePrescs / prescriptions.length * 100)}% actives` : 'Aucune';
+
+    const criticalCount = patients.filter(p => p.status === 'critical' || p.status === 'critique').length;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayAppointments = appointments.filter(a => {
+      if (!a.date) return false;
+      const d = new Date(a.date);
+      return d.toISOString().split('T')[0] === todayStr;
+    });
 
     return (
     <div className="space-y-8">
       {/* Top Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard icon={Users} label="Total des patients" value={patients.length.toString()} trend="Actifs" colorClass="bg-gradient-to-br from-teal-700 to-teal-600" shadowClass="shadow-lg shadow-teal-700/25" />
-        <StatCard icon={Calendar} label="Rendez-vous" value={appointments.length.toString()} trend="Planifiés" colorClass="bg-gradient-to-br from-teal-600 to-teal-500" shadowClass="shadow-lg shadow-teal-600/25" />
-        <StatCard icon={FileText} label="Ordonnances" value={prescriptions.length.toString()} trend="Actives" colorClass="bg-gradient-to-br from-teal-800 to-teal-700" shadowClass="shadow-lg shadow-teal-800/25" />
-        <StatCard icon={Activity} label="Cas critiques" value={patients.filter(p => p.status === 'critical' || p.status === 'critique').length.toString()} trend="Urgent" colorClass="bg-gradient-to-br from-rose-500 to-red-600" shadowClass="shadow-lg shadow-rose-500/30" />
+        <StatCard icon={Users} label={td.statPatients} value={patients.length.toString()} trend={patientTrend} colorClass="bg-gradient-to-br from-teal-700 to-teal-600" shadowClass="shadow-lg shadow-teal-700/25" />
+        <StatCard icon={Calendar} label={td.statAppointments} value={appointments.length.toString()} trend={apptTrend} colorClass="bg-gradient-to-br from-teal-600 to-teal-500" shadowClass="shadow-lg shadow-teal-600/25" />
+        <StatCard icon={FileText} label={td.statPrescriptions} value={prescriptions.length.toString()} trend={prescTrend} colorClass="bg-gradient-to-br from-teal-800 to-teal-700" shadowClass="shadow-lg shadow-teal-800/25" />
+        <StatCard icon={Activity} label={td.statCritical} value={criticalCount.toString()} trend={criticalCount > 0 ? 'Urgent' : tc.noData} colorClass={`bg-gradient-to-br ${criticalCount > 0 ? 'from-rose-500 to-red-600' : 'from-emerald-500 to-teal-600'}`} shadowClass={`shadow-lg ${criticalCount > 0 ? 'shadow-rose-500/30' : 'shadow-teal-600/30'}`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -483,12 +508,12 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
         <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100">
           <div className="flex justify-between items-center mb-8">
             <h3 className="text-2xl font-black text-slate-800 tracking-tight">
-              Tendances hebdomadaires
+              {td.weeklyTrends}
             </h3>
             <select className="bg-slate-50 border border-slate-200 text-teal-800 text-sm font-black rounded-xl px-4 py-2.5 outline-none focus:border-teal-600 hover:bg-teal-50 transition-colors shadow-sm">
-              <option>Cette semaine</option>
-              <option>La semaine dernière</option>
-              <option>Ce mois-ci</option>
+              <option>{td.thisWeek}</option>
+              <option>{td.lastWeek}</option>
+              <option>{td.thisMonth}</option>
             </select>
           </div>
           <ResponsiveContainer width="100%" height={300}>
@@ -525,21 +550,21 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
         <div className="bg-white rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100">
           <div className="flex justify-between items-center mb-8">
             <h3 className="text-2xl font-black text-slate-800 tracking-tight">
-              RDV aujourd'hui
+              {td.todaySchedule}
             </h3>
             <div className="bg-teal-50 text-teal-800 border border-teal-200 px-3 py-1.5 rounded-xl text-xs font-black shadow-sm">
-              {appointments.length} rendez-vous
+              {todayAppointments.length} {td.appointments}
             </div>
           </div>
           
           <div className="space-y-4">
-            {appointments.length === 0 ? (
+            {todayAppointments.length === 0 ? (
               <div className="p-6 text-center text-slate-500 bg-slate-50 rounded-2xl border border-slate-100 border-dashed">
                 <Calendar className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                <p className="font-bold text-sm">Aucun RDV aujourd'hui</p>
+                <p className="font-bold text-sm">{td.noAppointmentsToday}</p>
               </div>
             ) : (
-              appointments.map(appt => (
+              todayAppointments.slice(0, 5).map(appt => (
                 <div key={appt.id} className="p-5 rounded-2xl bg-white border-2 border-slate-100 hover:border-teal-300 hover:shadow-md transition-all group cursor-pointer relative overflow-hidden">
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-teal-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   <div className="flex justify-between items-start mb-3">
@@ -565,10 +590,10 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
 
           <div className="flex justify-between items-center mt-6 gap-2">
             <button onClick={generatePlanningPDF} className="flex-1 py-4 bg-slate-50 hover:bg-teal-50 text-slate-600 hover:text-teal-800 font-black rounded-xl transition-colors border border-slate-200 hover:border-teal-200 shadow-sm text-sm uppercase tracking-wider">
-              Voir le planning
+              {td.viewSchedule}
             </button>
             <button onClick={() => setShowAddAppointment(true)} className="flex-1 py-4 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl transition-colors shadow-lg shadow-teal-600/25 text-sm uppercase tracking-wider">
-              + Ajouter RDV
+              {td.addAppointment}
             </button>
           </div>
         </div>
@@ -577,7 +602,7 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
       <div className="bg-white rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 mt-8">
         <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-8 flex items-center gap-4">
           <Activity className="w-8 h-8 text-teal-600" />
-          Journal d'Activité Récent
+          {td.activityLog}
         </h3>
         <div className="space-y-6">
           {[
@@ -620,7 +645,7 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
         <div className="bg-rose-50 border-2 border-rose-100 rounded-3xl p-8 shadow-[0_8px_30px_rgb(239,68,68,0.08)]">
           <h3 className="text-xl font-black text-rose-800 tracking-tight mb-6 flex items-center gap-3">
             <Activity className="w-6 h-6 text-rose-600 animate-pulse" />
-            Patients en état critique
+            {td.criticalPatients}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {patients.filter(p => p.status === 'critical' || p.status === 'critique').map((p, i) => (
@@ -647,14 +672,14 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
           <div className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border border-slate-100 my-8">
             <div className="flex justify-between items-center mb-8">
-              <h3 className="text-2xl font-black text-slate-800">Planning Complet</h3>
+              <h3 className="text-2xl font-black text-slate-800">{td.fullSchedule}</h3>
               <button onClick={() => setShowScheduleModal(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
                 <XCircle className="w-8 h-8" />
               </button>
             </div>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {appointments.length === 0 ? (
-                <p className="text-slate-500 text-center py-8">Aucun rendez-vous prévu.</p>
+                <p className="text-slate-500 text-center py-8">{td.noAppointments}</p>
               ) : (
                 appointments.map(appt => (
                   <div key={appt.id} className="p-5 border border-slate-100 rounded-2xl bg-slate-50 flex justify-between items-center">
@@ -664,7 +689,7 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
                       <p className="text-xs font-bold text-slate-500">{appt.type}</p>
                     </div>
                     <button onClick={() => handleDeleteAppointment(appt.id)} className="px-4 py-2 bg-rose-50 text-rose-600 text-xs font-black rounded-xl border border-rose-100 hover:bg-rose-100 transition-colors">
-                      Annuler
+                      {td.cancelAppointment}
                     </button>
                   </div>
                 ))
@@ -678,16 +703,16 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
           <div className="bg-white rounded-3xl p-8 max-w-xl w-full shadow-2xl border border-slate-100 my-8">
             <div className="flex justify-between items-center mb-8">
-              <h3 className="text-2xl font-black text-slate-800">Nouveau Rendez-vous</h3>
+              <h3 className="text-2xl font-black text-slate-800">{td.newAppointment}</h3>
               <button onClick={() => setShowAddAppointment(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
                 <XCircle className="w-8 h-8" />
               </button>
             </div>
             <form onSubmit={handleAddAppointment} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Patient</label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{tc.roles?.patient || 'Patient'}</label>
                 <select name="patientId" required className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800">
-                  <option value="">Sélectionner un patient</option>
+                  <option value="">{td.selectPatient}</option>
                   {patients.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
@@ -695,28 +720,28 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Date</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{td.dateLabel}</label>
                   <input type="date" name="date" required min={new Date().toISOString().split('T')[0]} className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Heure (08:00 - 21:00)</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{td.timeLabel}</label>
                   <input type="time" name="time" required min="08:00" max="21:00" className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Type de RDV</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{td.appointmentType}</label>
                   <input type="text" name="type" placeholder="ex: Consultation" required className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Durée (ex: 30 min)</label>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{td.durationLabel}</label>
                   <input type="text" name="duration" placeholder="ex: 30 min" required className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 focus:border-teal-500 rounded-2xl outline-none transition-all font-bold text-slate-800" />
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
                 <button type="button" onClick={() => setShowAddAppointment(false)} className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-colors">
-                  Annuler
+                  {td.cancelAppointment}
                 </button>
                 <button type="submit" className="px-8 py-3.5 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-2xl shadow-lg shadow-teal-600/25 transition-all">
-                  Ajouter
+                  {td.addBtn}
                 </button>
               </div>
             </form>
@@ -727,7 +752,7 @@ function DoctorPatients({ language, patients, fetchDashboard, doctorId }) {
   );
 };
 
-function DoctorSidebar({ activeTab, setActiveTab, onLogout, language, showSidebar, setShowSidebar, onLanguageToggle, setShowSettings }) {
+function DoctorSidebar({ activeTab, setActiveTab, onLogout, language, showSidebar, setShowSidebar, onLanguageToggle, setShowSettings, doctorName, doctorSpecialty }) {
   const tr = (translations[language] || translations.fr);
   const td = tr.doctor;
   const tc = tr.common;
@@ -772,8 +797,8 @@ function DoctorSidebar({ activeTab, setActiveTab, onLogout, language, showSideba
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-teal-600 border-2 border-white rounded-full"></div>
             </div>
             <div className="flex-1">
-              <h3 className="font-black text-slate-800 text-sm">{language === 'tn' || language === 'ar' ? 'د. محمد أحمد' : 'Dr. Mohamed Ahmed'}</h3>
-              <p className="text-xs text-slate-500 mt-0.5 font-bold">{td.cardiologist}</p>
+              <h3 className="font-black text-slate-800 text-sm">{doctorName || 'Dr. Mohamed Ahmed'}</h3>
+              <p className="text-xs text-slate-500 mt-0.5 font-bold">{doctorSpecialty || td.cardiologist}</p>
             </div>
           </div>
         </div>
@@ -820,6 +845,7 @@ function DoctorSidebar({ activeTab, setActiveTab, onLogout, language, showSideba
 }
 
 export default function DoctorInterface({ patient, onLogout, language, setLanguage, onUpdateUser }) {
+  const doctorName = 'Dr. ' + (patient?.name || '') + ' ' + (patient?.lastname || '');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showSidebar, setShowSidebar] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -890,6 +916,7 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
         }
         return {
           id: a._id || a.id,
+          date: a.date,
           time: a.time,
           patient: pName || 'Inconnu',
           type: a.type,
@@ -936,7 +963,7 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
 
     return (
       <div className="space-y-6">
-        <h2 className="text-3xl font-black text-slate-800 tracking-tight">Suivi des constantes</h2>
+        <h2 className="text-3xl font-black text-slate-800 tracking-tight">{td.vitalTracking}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {patientsList.map(p => {
             const latestVitals = p.vitalSigns && p.vitalSigns.length > 0 ? p.vitalSigns[p.vitalSigns.length - 1] : {};
@@ -959,20 +986,20 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-6 border-t border-slate-100">
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <p className="text-xs font-black text-slate-400 mb-1 uppercase tracking-wider">Poids</p>
+                    <p className="text-xs font-black text-slate-400 mb-1 uppercase tracking-wider">{td.weight}</p>
                     <p className="text-2xl font-black text-slate-800">{latestVitals.weight || '--'} <span className="text-sm text-slate-400 font-bold">kg</span></p>
                   </div>
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <p className="text-xs font-black text-slate-400 mb-1 uppercase tracking-wider">Tension</p>
+                    <p className="text-xs font-black text-slate-400 mb-1 uppercase tracking-wider">{td.tension}</p>
                     <p className="text-2xl font-black text-slate-800">{latestVitals.bloodPressure || '--'}</p>
                   </div>
                 </div>
                 <div className="flex gap-2 mt-6">
                   <button onClick={() => setViewingJournalFor(p)} className="flex-1 py-3 bg-teal-50 text-teal-800 font-bold rounded-xl border border-teal-100 hover:bg-teal-700 hover:text-white transition-colors text-sm">
-                    Journal
+{td.viewLog}
                   </button>
                   <button onClick={() => setShowAddVitalsModal(p)} className="flex-1 py-3 bg-white text-teal-700 font-bold rounded-xl border border-teal-200 hover:bg-teal-50 transition-colors text-sm">
-                    + Ajouter
+                    {td.addAppointment}
                   </button>
                 </div>
               </div>
@@ -991,7 +1018,7 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
               </div>
               <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                 {(!viewingJournalFor.vitalSigns || viewingJournalFor.vitalSigns.length === 0) ? (
-                  <p className="text-slate-500 text-center py-8">Aucun enregistrement trouvé.</p>
+                  <p className="text-slate-500 text-center py-8">{td.noAppointments}</p>
                 ) : (
                   viewingJournalFor.vitalSigns.map((vs, idx) => (
                     <div key={idx} className="p-5 border border-slate-100 rounded-2xl bg-slate-50 flex flex-wrap gap-6 justify-between items-center">
@@ -1042,10 +1069,10 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
                 </div>
                 <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
                   <button type="button" onClick={() => setShowAddVitalsModal(null)} className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-colors">
-                    Annuler
+                    {td.cancel}
                   </button>
                   <button type="submit" className="px-8 py-3.5 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-2xl shadow-lg shadow-teal-600/25 transition-all">
-                    Ajouter
+                    {td.add}
                   </button>
                 </div>
               </form>
@@ -1100,9 +1127,9 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Ordonnances</h2>
+          <h2 className="text-3xl font-black text-slate-800 tracking-tight">{td.prescriptions}</h2>
           <button onClick={() => setShowAddModal(true)} className="bg-teal-700 text-white px-6 py-3 font-black rounded-xl flex items-center gap-2 shadow-lg shadow-teal-700/25 hover:bg-teal-800 transition-colors">
-            <PenTool className="w-5 h-5" /> Nouvelle ordonnance
+            <PenTool className="w-5 h-5" /> {td.newPrescription}
           </button>
         </div>
         <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 overflow-hidden">
@@ -1110,10 +1137,10 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 rounded-2xl">
               <tr>
-                <th className="px-6 py-5 font-black text-xs uppercase tracking-wider text-slate-500 rounded-tl-2xl rounded-bl-2xl">Patient</th>
-                <th className="px-6 py-5 font-black text-xs uppercase tracking-wider text-slate-500">Médicament</th>
-                <th className="px-6 py-5 font-black text-xs uppercase tracking-wider text-slate-500">Date de prescription</th>
-                <th className="px-6 py-5 font-black text-xs uppercase tracking-wider text-slate-500 text-right rounded-tr-2xl rounded-br-2xl">Actions</th>
+                <th className="px-6 py-5 font-black text-xs uppercase tracking-wider text-slate-500 rounded-tl-2xl rounded-bl-2xl">{tc.roles?.patient || 'Patient'}</th>
+                <th className="px-6 py-5 font-black text-xs uppercase tracking-wider text-slate-500">{td.drug}</th>
+                <th className="px-6 py-5 font-black text-xs uppercase tracking-wider text-slate-500">{td.prescriptionDate}</th>
+                <th className="px-6 py-5 font-black text-xs uppercase tracking-wider text-slate-500 text-right rounded-tr-2xl rounded-br-2xl">{td.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1128,13 +1155,13 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
                         onClick={() => setEditingPrescription(pres)}
                         className="px-4 py-2 bg-white border border-slate-200 shadow-sm rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-teal-700 transition-colors"
                       >
-                        Réviser
+{td.review}
                       </button>
                       <button 
                         onClick={() => handleDeletePrescription(pres.id)}
                         className="px-4 py-2 bg-rose-50 border border-rose-100 shadow-sm rounded-xl text-sm font-bold text-rose-600 hover:bg-rose-100 transition-colors"
                       >
-                        Supprimer
+{td.delete}
                       </button>
                     </div>
                   </td>
@@ -1269,15 +1296,15 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
 
     return (
       <div className="space-y-8">
-        <h2 className="text-3xl font-black text-slate-800 tracking-tight">Analytique</h2>
+        <h2 className="text-3xl font-black text-slate-800 tracking-tight">{td.analytics}</h2>
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { label: 'Patients', value: totalPatients, color: 'teal' },
-            { label: 'Ordonnances', value: totalPrescriptions, color: 'indigo' },
-            { label: 'Rendez-vous', value: totalAppointments, color: 'amber' },
-            { label: 'Cas critiques', value: criticalCount, color: 'rose' },
+            { label: td.statPatients, value: totalPatients, color: 'teal' },
+            { label: td.statPrescriptions, value: totalPrescriptions, color: 'indigo' },
+            { label: td.statAppointments, value: totalAppointments, color: 'amber' },
+            { label: td.statCritical, value: criticalCount, color: 'rose' },
           ].map(({ label, value, color }) => (
             <div key={label} className={`bg-white rounded-3xl p-6 border-2 border-${color}-100 shadow-sm`}>
               <p className={`text-xs font-black text-${color}-500 uppercase tracking-widest mb-2`}>{label}</p>
@@ -1387,7 +1414,7 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
     <MessagesSection 
       language={language} 
       userRole="doctor" 
-      currentUser={{ id: patient?._id || patient?.id, name: patient?.name || 'Doctor', role: 'doctor' }} 
+      currentUser={{ id: patient?.id || patient?._id, name: patient?.name || 'Doctor', role: 'doctor' }} 
     />
   );
 
@@ -1413,9 +1440,9 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Tâches du jour</h2>
+          <h2 className="text-3xl font-black text-slate-800 tracking-tight">{td.tasks}</h2>
           <div className="bg-teal-50 text-teal-800 border border-teal-200 px-5 py-2.5 rounded-xl font-black text-sm shadow-sm">
-            {todayTasks.length} tâches aujourd'hui
+            {todayTasks.length} {td.appointments}
           </div>
         </div>
 
@@ -1541,6 +1568,8 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
         activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} 
         language={language} showSidebar={showSidebar} setShowSidebar={setShowSidebar}
         onLanguageToggle={handleLanguageToggle} setShowSettings={setShowSettings}
+        doctorName={doctorName}
+        doctorSpecialty={patient?.specialty || td?.cardiologist}
       />
 
       <main className={`flex-1 main-content-transition lg:${isRtl ? (showSidebar ? 'mr-80' : 'mr-0') : (showSidebar ? 'ml-80' : 'ml-0')} min-h-screen flex flex-col`}>
@@ -1584,8 +1613,12 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
                   </div>
                 )}
               </div>
-              <div className="hidden md:flex items-center gap-2 bg-rose-50 border border-rose-200 text-rose-600 px-5 py-2.5 rounded-xl font-black text-sm shadow-sm">
-                <Heart className="w-5 h-5" /> 2 {td?.criticalAlerts}
+              <div className={`hidden md:flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-sm shadow-sm ${
+                  patientsList.filter(p => p.status === 'critical' || p.status === 'critique').length > 0
+                    ? 'bg-rose-50 border border-rose-200 text-rose-600'
+                    : 'bg-teal-50 border border-teal-200 text-teal-600'
+                }`}>
+                <Heart className="w-5 h-5" /> {patientsList.filter(p => p.status === 'critical' || p.status === 'critique').length} {td?.criticalAlerts || 'Alertes'}
               </div>
               <button 
                 onClick={() => setShowNotifications(true)}
@@ -1608,6 +1641,7 @@ export default function DoctorInterface({ patient, onLogout, language, setLangua
                 prescriptions={prescriptionsList}
                 notifications={notificationsList}
                 doctorId={patient?._id || patient?.id}
+                doctorName={doctorName}
                 fetchDashboard={fetchDashboard}
               />
             )}

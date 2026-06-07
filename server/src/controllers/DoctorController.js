@@ -29,7 +29,7 @@ export const getDoctorById = async (req, res) => {
     try {
         const { id } = req.params;
         const doctor = await Doctor.findOne({
-            $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }]
+            $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id }]
         });
         if (!doctor) {
             return res.status(404).json({ message: 'Doctor not found' });
@@ -38,21 +38,19 @@ export const getDoctorById = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
-}
+};
 
 export const updateDoctor = async (req, res) => {
     const { id } = req.params;
     const data = req.body;
     try {
-        const query = { $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }] };
+        const query = { $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id: id }] };
 
-        // findOne + save() so Mongoose encryption setters fire on sensitive fields
         const doctor = await Doctor.findOne(query);
         if (!doctor) {
             return res.status(404).json({ message: 'Doctor not found' });
         }
 
-        // Apply fields individually — setters will encrypt name/lastname/phone/address
         const ALLOWED = ['name', 'lastname', 'email', 'phone', 'address',
                          'status', 'specialty', 'department', 'patientIDs', 'caregiverIDs'];
         ALLOWED.forEach(field => {
@@ -65,13 +63,13 @@ export const updateDoctor = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
-}
+};
 
 export const deleteDoctor = async (req, res) => {
     const { id } = req.params;
     try {
         const deletedDoctor = await Doctor.findOneAndDelete({
-            $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }]
+            $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id: id }]
         });
         if (!deletedDoctor) {
             return res.status(404).json({ message: 'Doctor not found' });
@@ -81,13 +79,13 @@ export const deleteDoctor = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
-}
+};
 
 export const getDoctorDashboard = async (req, res) => {
     try {
         const { id } = req.params;
         const doctor = await Doctor.findOne({
-            $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }]
+            $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id: id }]
         });
         if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
         
@@ -100,7 +98,6 @@ export const getDoctorDashboard = async (req, res) => {
 
         const notifications = await Notification.find({ receiverID: id }).sort({ date: -1 }).limit(10);
         
-        // Fetch tasks from caregivers for doctor's patients
         const Caregiver = await import('../models/caregiver.js').then(m => m.default);
         const tasks = [];
         for (const patient of myPatients) {
@@ -108,7 +105,7 @@ export const getDoctorDashboard = async (req, res) => {
                 for (const cgId of patient.caregiverIDs) {
                     try {
                         const caregiver = await Caregiver.findOne({
-                            $or: [{ _id: mongoose.Types.ObjectId.isValid(cgId) ? cgId : null }, { id: cgId }]
+                            $or: [...(mongoose.Types.ObjectId.isValid(cgId) ? [{ _id: cgId }] : []), { id: cgId }]
                         });
                         if (caregiver && caregiver.tasks) {
                             caregiver.tasks.forEach(task => {
@@ -139,13 +136,63 @@ export const getDoctorDashboard = async (req, res) => {
     }
 };
 
+const CONDITION_SPECIALTY_MAP = {
+  'General Medicine': [],
+  'Cardiology': ['hypertension', 'heart', 'cardiac', 'chf', 'arrythmia'],
+  'Endocrinology': ['diabetes', 'thyroid', 'hormone', 'glycémie'],
+  'Neurology': ['neurological', 'epilepsy', 'alzheimer', 'migraine', 'parkinson', 'stroke'],
+  'Pediatrics': [],
+  'Dermatology': ['dermatitis', 'eczema', 'psoriasis', 'skin', 'acne'],
+  'Orthopedics': ['fracture', 'arthritis', 'orthopedic', 'bone', 'surgery', 'post-surgery', 'post-op'],
+  'Psychiatry': ['depression', 'anxiety', 'psychiatric', 'mental', 'bipolar'],
+  'Ophthalmology': ['vision', 'cataract', 'glaucoma', 'eye'],
+  'ENT': ['ear', 'nose', 'throat', 'hearing', 'sinus', 'tonsil'],
+  'Pulmonology': ['asthma', 'copd', 'pulmonary', 'lung', 'respiratory'],
+  'Gastroenterology': ['gastric', 'digestive', 'stomach', 'intestinal', 'liver', 'ibs'],
+  'Radiology': [],
+  'Anesthesiology': [],
+};
+
+export const getAvailablePatients = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doctor = await Doctor.findOne({
+      $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id }]
+    });
+    if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+
+    const specialty = doctor.specialty || 'General Medicine';
+    const keywords = CONDITION_SPECIALTY_MAP[specialty] || [];
+
+    const allPatients = await Patient.find({});
+
+    const available = allPatients.filter(p => {
+      const isLinked =
+        doctor.patientIDs?.includes(p._id.toString()) ||
+        doctor.patientIDs?.includes(p.id) ||
+        p.doctorIDs?.includes(doctor._id.toString()) ||
+        p.doctorIDs?.includes(doctor.id);
+      if (isLinked) return false;
+
+      if (keywords.length === 0) return true;
+
+      const conditions = (p.currentConditions || []).map(c => c.toLowerCase());
+      return keywords.some(kw => conditions.some(c => c.includes(kw)));
+    });
+
+    res.status(200).json(available);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const addPrescription = async (req, res) => {
     const { id } = req.params;
     const { patientId, medications } = req.body;
     
     try {
         const doctor = await Doctor.findOne({
-            $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }]
+            $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id }]
         });
         if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
         
@@ -158,7 +205,7 @@ export const addPrescription = async (req, res) => {
         await doctor.save();
         
         const patient = await Patient.findOne({
-            $or: [{ _id: mongoose.Types.ObjectId.isValid(patientId) ? patientId : null }, { id: patientId }]
+            $or: [...(mongoose.Types.ObjectId.isValid(patientId) ? [{ _id: patientId }] : []), { id: patientId }]
         });
         if (patient) {
             // Add medications to current list
@@ -214,7 +261,7 @@ export const addAppointment = async (req, res) => {
         }
 
         const doctor = await Doctor.findOne({
-            $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }]
+            $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id }]
         });
         if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
         
@@ -223,7 +270,7 @@ export const addAppointment = async (req, res) => {
         
         if (appointmentData.patientId) {
             const patient = await Patient.findOne({
-                $or: [{ _id: mongoose.Types.ObjectId.isValid(appointmentData.patientId) ? appointmentData.patientId : null }, { id: appointmentData.patientId }]
+                $or: [...(mongoose.Types.ObjectId.isValid(appointmentData.patientId) ? [{ _id: appointmentData.patientId }] : []), { id: appointmentData.patientId }]
             });
             if (patient) {
                 patient.appointments.push({
@@ -246,7 +293,7 @@ export const deleteAppointment = async (req, res) => {
     const { id, appointmentId } = req.params;
     try {
         const doctor = await Doctor.findOne({
-            $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }]
+            $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id }]
         });
         if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
         
@@ -265,7 +312,7 @@ export const deletePrescription = async (req, res) => {
     const { id, prescriptionId } = req.params;
     try {
         const doctor = await Doctor.findOne({
-            $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }]
+            $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id }]
         });
         if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
 
@@ -282,7 +329,7 @@ export const deletePrescription = async (req, res) => {
         // Mirror deletion on patient
         if (patientId) {
             const patient = await Patient.findOne({
-                $or: [{ _id: mongoose.Types.ObjectId.isValid(patientId) ? patientId : null }, { id: patientId }]
+                $or: [...(mongoose.Types.ObjectId.isValid(patientId) ? [{ _id: patientId }] : []), { id: patientId }]
             });
             if (patient) {
                 patient.prescriptions = (patient.prescriptions || []).filter(p =>
@@ -303,7 +350,7 @@ export const updatePrescription = async (req, res) => {
     const { medications, status } = req.body;
     try {
         const doctor = await Doctor.findOne({
-            $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { id: id }]
+            $or: [...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []), { id }]
         });
         if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
         
@@ -320,7 +367,7 @@ export const updatePrescription = async (req, res) => {
         // Also update patient's linked prescription if found
         const patientId = doctor.prescriptions[presIndex].patientID;
         const patient = await Patient.findOne({
-            $or: [{ _id: mongoose.Types.ObjectId.isValid(patientId) ? patientId : null }, { id: patientId }]
+            $or: [...(mongoose.Types.ObjectId.isValid(patientId) ? [{ _id: patientId }] : []), { id: patientId }]
         });
         if (patient && patient.prescriptions) {
             const pPresIndex = patient.prescriptions.findIndex(p => 

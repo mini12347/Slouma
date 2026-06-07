@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Send, User, MessageCircle, Clock, Check, MoreVertical, Paperclip, 
-  Smile, Mic, Phone, Video, X, ChevronDown, Search, Filter, 
-  UserPlus, CheckCircle2, ShieldCheck, HeartPulse, Stethoscope
+  Send, User, MessageCircle, Check, MoreVertical, Paperclip, 
+  Smile, Phone, Video, Search, ShieldCheck, HeartPulse, Stethoscope
 } from 'lucide-react';
 import { messagesService } from '../services/messagesService';
+import { notificationService } from '../services/notificationService';
+import api from '../services/api';
 import { translations } from './translations';
 
 export default function MessagesSection({ language, userRole = 'patient', currentUser }) {
@@ -13,8 +14,7 @@ export default function MessagesSection({ language, userRole = 'patient', curren
   const [selectedContact, setSelectedContact] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
-  const [activeCall, setActiveCall] = useState(null);
-  const [showContactDetails, setShowContactDetails] = useState(false);
+  const [showContactMenu, setShowContactMenu] = useState(false);
   const [availableContacts, setAvailableContacts] = useState([]);
   const [chatHistory, setChatHistory] = useState({});
 
@@ -63,6 +63,43 @@ export default function MessagesSection({ language, userRole = 'patient', curren
     }
   }, [chatHistory, selectedContact]);
 
+  const handleReportUser = async () => {
+    try {
+      const admins = await api.get('/admins');
+      const admin = Array.isArray(admins) ? admins[0] : admins?.admins?.[0];
+      if (!admin) { alert(tc.noAdminFound || 'No admin found.'); return; }
+      const adminId = admin.id || admin._id;
+      await notificationService.createNotification({
+        id: 'report-' + Date.now(),
+        receiverID: adminId,
+        content: `User ${currentUser?.name || currentUser?.id} reported ${selectedContact.name} (${selectedContact.id})`,
+        date: new Date(),
+        type: 'alert',
+        read: false
+      });
+      alert(tc.userReported || 'User reported to admin.');
+    } catch (err) {
+      console.error('Failed to report user:', err);
+      alert(tc.failedReportUser || 'Failed to report user.');
+    }
+  };
+
+  const handleBlockUser = async () => {
+    const rawId = currentUser?.id || currentUser?._id;
+    const currentId = rawId ? rawId.toString() : null;
+    if (!currentId || !selectedContact) return;
+    try {
+      await messagesService.blockUser(currentId, selectedContact.id);
+      setAvailableContacts(prev => prev.filter(c => c.id !== selectedContact.id));
+      setSelectedContact(null);
+      setShowContactMenu(false);
+      alert(tc.userBlocked || 'User blocked and conversation deleted.');
+    } catch (err) {
+      console.error('Failed to block user:', err);
+      alert(tc.failedBlockUser || 'Failed to block user.');
+    }
+  };
+
   const filteredContacts = availableContacts.filter(c => {
     const matchesSearch = (c.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filterType === 'all' || c.role === filterType;
@@ -96,10 +133,16 @@ export default function MessagesSection({ language, userRole = 'patient', curren
       await messagesService.sendMessage({
         senderID: currentId,
         receiverID: selectedContact.id,
-        message: msgText
+        message: msgText,
+        date: new Date(),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       });
     } catch (err) {
       console.error('Failed to send message:', err);
+      setChatHistory(prev => ({
+        ...prev,
+        [selectedContact.id]: (prev[selectedContact.id] || []).slice(0, -1)
+      }));
     }
   };
 
@@ -244,15 +287,33 @@ export default function MessagesSection({ language, userRole = 'patient', curren
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={() => setActiveCall({ type: 'audio', contact: selectedContact })} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-teal-700 hover:text-white transition-all active:scale-90">
+                <button onClick={() => { const ids = [currentUser?.id || currentUser?._id, selectedContact.id].filter(Boolean).sort().join('-'); window.open(`https://meet.jit.si/Slouma-Chat-${ids}?config.startWithVideoMuted=true`, '_blank'); }} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-teal-700 hover:text-white transition-all active:scale-90">
                   <Phone className="w-6 h-6" />
                 </button>
-                <button onClick={() => setActiveCall({ type: 'video', contact: selectedContact })} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-teal-700 hover:text-white transition-all active:scale-90">
+                <button onClick={() => { const ids = [currentUser?.id || currentUser?._id, selectedContact.id].filter(Boolean).sort().join('-'); window.open(`https://meet.jit.si/Slouma-Chat-${ids}`, '_blank'); }} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-teal-700 hover:text-white transition-all active:scale-90">
                   <Video className="w-6 h-6" />
                 </button>
-                <button onClick={() => setShowContactDetails(!showContactDetails)} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all active:scale-90">
-                  <MoreVertical className="w-6 h-6" />
-                </button>
+                <div className="relative">
+                  <button onClick={() => setShowContactMenu(!showContactMenu)} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all active:scale-90">
+                    <MoreVertical className="w-6 h-6" />
+                  </button>
+                  {showContactMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowContactMenu(false)} />
+                      <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 overflow-hidden">
+                        <button onClick={() => { setShowContactMenu(false); handleReportUser(); }} className="w-full flex items-center gap-3 px-5 py-3.5 text-sm font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-all text-left">
+                          <ShieldCheck className="w-5 h-5" />
+                          {tc.reportUser || 'Report user'}
+                        </button>
+                        <div className="mx-4 border-t border-slate-100" />
+                        <button onClick={() => { setShowContactMenu(false); handleBlockUser(); }} className="w-full flex items-center gap-3 px-5 py-3.5 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-all text-left">
+                          <ShieldCheck className="w-5 h-5" />
+                          {tc.blockUser || 'Block user'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -312,31 +373,6 @@ export default function MessagesSection({ language, userRole = 'patient', curren
         )}
       </div>
 
-      {activeCall && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/95 flex flex-col items-center justify-center p-8 backdrop-blur-xl">
-          <div className="w-48 h-48 rounded-[3rem] overflow-hidden border-8 border-teal-500 shadow-2xl mb-8 animate-pulse">
-            <img src={activeCall.contact.avatar} alt="" className="w-full h-full object-cover" />
-          </div>
-          <h2 className="text-4xl font-black text-white mb-2">{activeCall.contact.name}</h2>
-          <p className="text-teal-400 text-xl font-bold uppercase tracking-widest mb-12">
-            {activeCall.type === 'video' ? (tc.videoCallInProgress || 'Appel Vidéo en cours...') : (tc.audioCallInProgress || 'Appel Audio en cours...')}
-          </p>
-          <div className="flex gap-8">
-            <button className="w-20 h-20 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-xl hover:bg-slate-700 transition-all active:scale-90">
-              <Mic className="w-10 h-10" />
-            </button>
-            <button 
-              onClick={() => setActiveCall(null)}
-              className="w-24 h-24 bg-rose-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-rose-700 transition-all active:scale-90"
-            >
-              <Phone className="w-12 h-12 rotate-[135deg]" />
-            </button>
-            <button className="w-20 h-20 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-xl hover:bg-slate-700 transition-all active:scale-90">
-              <Video className="w-10 h-10" />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

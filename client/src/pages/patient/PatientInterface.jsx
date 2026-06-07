@@ -5,7 +5,8 @@ import {
   Heart, LogOut, Phone, Users, Bot, AlertTriangle, Activity,
   Droplets, Thermometer, Pill, CheckCircle2, CalendarDays,
   ChevronRight, Clock, Menu, Home, FileText, Settings, Bell,
-  Globe, Download, Search, PlusCircle, Volume2, Video, XCircle, MessageCircle, Film
+  Globe, Download, Search, PlusCircle, Volume2, Video, XCircle, MessageCircle, Film,
+  ClipboardList
 } from 'lucide-react';
 import EmergencyModal from '../../shared/EmergencyModal';
 import VoiceAssistantModal from '../../shared/VoiceAssistantModal';
@@ -35,6 +36,8 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
   const isRtl = language === 'ar' || language === 'tn';
 
   const [medicines, setMedicines] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
 
   useEffect(() => {
     if (patient && patient.medications) {
@@ -105,6 +108,23 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
     }
   };
 
+  useEffect(() => {
+    const fetchTasks = async () => {
+      if (!patient) return;
+      setTasksLoading(true);
+      try {
+        const res = await patientService.getTasks(patient._id || patient.id);
+        setTasks(res || []);
+      } catch (err) {
+        console.error('Failed to fetch tasks:', err);
+        setTasks([]);
+      } finally {
+        setTasksLoading(false);
+      }
+    };
+    fetchTasks();
+  }, [patient]);
+
   const ActionCard = ({ icon: Icon, title, onClick, bgColor, textColor, iconBg }) => (
     <button
       onClick={onClick}
@@ -167,7 +187,7 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
                 onClick={() => handleVideoCall(nextAppointment?._id || nextAppointment?.id || 'Consultation')}
                 className="w-full bg-white text-teal-900 hover:bg-teal-50 font-black text-2xl py-6 rounded-3xl shadow-xl active:scale-95 transition-all flex justify-center items-center gap-3"
               >
-                <Video className="w-8 h-8"/> {tc.join || 'Rejoindre la consultation'}
+                <Video className="w-8 h-8"/> {tp.join || 'Rejoindre la consultation'}
               </button>
             </div>
           </div>
@@ -377,6 +397,52 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
     }
   };
 
+  const PatientTasks = () => (
+    <div className="bg-gradient-to-br from-emerald-700 to-emerald-900 rounded-[3rem] p-8 sm:p-12 shadow-2xl">
+      <h2 className="text-3xl font-black text-white flex items-center gap-4 mb-8">
+        <ClipboardList className="w-8 h-8" />
+        {tp.myTasks}
+        <span className="ml-auto text-lg font-bold text-emerald-200/60">{tasks.length} tâche{tasks.length > 1 ? 's' : ''}</span>
+      </h2>
+      {tasksLoading ? (
+        <p className="text-lg font-bold text-emerald-100/50 py-8 text-center">Chargement...</p>
+      ) : tasks.length === 0 ? (
+        <p className="text-lg font-bold text-emerald-100/50 py-8 text-center">
+          {tp.noTasks}
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {tasks.map((task, idx) => (
+            <div key={idx} className={`flex items-center gap-4 px-5 py-4 rounded-2xl transition-all hover:scale-[1.01] cursor-default ${task.status === 'completed' ? 'bg-emerald-500/10 border border-emerald-400/20' : 'bg-white/5 border border-white/10'}`}>
+              <button
+                onClick={() => {}}
+                className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${task.status === 'completed' ? 'bg-emerald-400 border-emerald-400 text-white' : 'border-white/30 hover:border-white/60'}`}
+              >
+                {task.status === 'completed' && <span className="text-xs font-black">✓</span>}
+              </button>
+              <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                <span className={`text-base font-bold truncate ${task.status === 'completed' ? 'text-emerald-200/50 line-through' : 'text-white'}`}>
+                  {task.title}
+                </span>
+                <span className="text-xs text-emerald-100/40 font-medium truncate sm:max-w-[200px]">
+                  {task.description}
+                </span>
+              </div>
+              <div className="shrink-0 flex items-center gap-3">
+                <span className="text-xs text-emerald-100/40 font-medium whitespace-nowrap">
+                  {new Date(task.date).toLocaleDateString()}
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${task.status === 'completed' ? 'bg-emerald-400/20 text-emerald-300' : 'bg-amber-400/20 text-amber-300'}`}>
+                  {task.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   const PatientPrescriptions = () => {
     const prescriptions = patient.prescriptions?.length > 0 ? patient.prescriptions : [
       {
@@ -403,7 +469,7 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-6">
           <h2 className="text-4xl font-black text-slate-900 flex items-center gap-4">
             <FileText className="w-12 h-12 text-teal-600" />
-            {language === 'fr' ? 'Mes Ordonnances' : language === 'ar' || language === 'tn' ? 'وصفاتي الطبية' : 'My Prescriptions'}
+            {tp.myPrescriptions}
           </h2>
           <div className="relative w-full sm:w-auto">
             <Search className={`w-8 h-8 text-slate-400 absolute top-1/2 -translate-y-1/2 ${isRtl ? 'right-4' : 'left-4'}`} />
@@ -444,7 +510,7 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
               </div>
 
               <div className="bg-slate-50 rounded-2xl p-6 border-2 border-slate-100 space-y-4 relative z-10">
-                <p className="text-sm font-black text-slate-400 uppercase tracking-widest">{language === 'fr' ? 'Médicaments prescrits' : 'Prescribed Medications'}</p>
+                <p className="text-sm font-black text-slate-400 uppercase tracking-widest">{tp.prescribedMedications}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {presc.medications.map((med, i) => (
                     <div key={i} className="flex items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -499,9 +565,10 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
           {[
             { id: 'home', icon: Home, label: tp.dashboard, color: 'text-teal-700', active: 'bg-teal-700 text-white' },
             { id: 'emergency', icon: AlertTriangle, label: tp.emergencyContacts || 'Urgence', color: 'text-red-700', active: 'bg-red-700 text-white' },
-            { id: 'prescriptions', icon: FileText, label: language === 'fr' ? 'Ordonnances' : language === 'ar' || language === 'tn' ? 'وصفات طبية' : 'Prescriptions', color: 'text-teal-700', active: 'bg-teal-700 text-white' },
+            { id: 'prescriptions', icon: FileText, label: tp.prescriptions, color: 'text-teal-700', active: 'bg-teal-700 text-white' },
             { id: 'messages', icon: MessageCircle, label: tc.messages, color: 'text-teal-700', active: 'bg-teal-700 text-white' },
-            { id: 'videos', icon: Film, label: language === 'fr' ? 'Vidéos' : language === 'ar' || language === 'tn' ? 'فيديوهات' : 'Videos', color: 'text-teal-700', active: 'bg-teal-700 text-white' },
+            { id: 'tasks', icon: ClipboardList, label: tp.tasks, color: 'text-teal-700', active: 'bg-teal-700 text-white' },
+            { id: 'videos', icon: Film, label: tp.videos, color: 'text-teal-700', active: 'bg-teal-700 text-white' },
           ].map((item) => (
             <button
               key={item.id}
@@ -552,9 +619,10 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
               {{
                 home: tp.dashboard,
                 emergency: tp.emergencyContacts,
-                prescriptions: language === 'fr' ? 'Ordonnances' : language === 'ar' || language === 'tn' ? 'وصفات طبية' : 'Prescriptions',
+                prescriptions: tp.prescriptions,
                 messages: tc.messages,
-                videos: language === 'fr' ? 'Vidéos' : language === 'ar' || language === 'tn' ? 'فيديوهات' : 'Videos'
+                tasks: tp.tasks,
+                videos: tp.videos
               }[activeTab]}
             </h2>
           </div>
@@ -747,11 +815,12 @@ export default function PatientInterface({ patient, onLogout, language, setLangu
             )}
 
             {activeTab === 'prescriptions' && <PatientPrescriptions />}
+            {activeTab === 'tasks' && <PatientTasks />}
             {activeTab === 'videos' && <VideosSection language={language} userRole="patient" />}
             {activeTab === 'messages' && (
               <MessagesSection 
                 language={language} 
-                currentUser={{ id: patient?._id || patient?.id, name: patient?.name || 'Patient', role: 'patient' }} 
+                currentUser={{ id: patient?.id || patient?._id, name: patient?.name || 'Patient', role: 'patient' }} 
               />
             )}
             
