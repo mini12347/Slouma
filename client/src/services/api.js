@@ -1,5 +1,5 @@
-const isProduction = import.meta.env.PROD;
-const API_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+export const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://slouma-111.onrender.com/api';
+export const API_BASE = API_URL.replace(/\/api$/, '');
 
 const fetchWithAuth = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
@@ -41,6 +41,14 @@ export default {
     return fetchWithAuth(endpoint, {
       ...options,
       method: 'PUT',
+      body: isFormData ? data : JSON.stringify(data)
+    });
+  },
+  patch: (endpoint, data, options = {}) => {
+    const isFormData = data instanceof FormData;
+    return fetchWithAuth(endpoint, {
+      ...options,
+      method: 'PATCH',
       body: isFormData ? data : JSON.stringify(data)
     });
   },

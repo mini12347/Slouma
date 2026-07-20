@@ -2,12 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { videoService } from '../services/videoService';
 import { PlayCircle, Trash2, Plus, Film } from 'lucide-react';
 import { translations } from './translations';
-
-const videoBaseUrl = (() => {
-  const apiUrl = import.meta.env.VITE_API_BASE_URL;
-  if (apiUrl) return apiUrl.replace(/\/api.*$/, '');
-  return '';
-})();
+import { API_BASE } from '../services/api';
 
 export default function AdminVideosSection({ language }) {
   const ta = (translations[language] || translations.fr).admin;
@@ -150,7 +145,7 @@ export default function AdminVideosSection({ language }) {
                 {video.url ? (
                   video.url.includes('/uploads/') ? (
                     <video 
-                      src={(!video.url.startsWith('http') ? videoBaseUrl : '') + video.url} 
+                      src={(!video.url.startsWith('http') ? API_BASE : '') + video.url} 
                       className="absolute top-0 left-0 w-full h-full object-cover"
                       controls
                     ></video>

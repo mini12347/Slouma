@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, XCircle, Loader, ArrowRight } from 'lucide-react';
+import { API_URL } from '../services/api';
 
 export default function VerifyEmailPage({ onGoToLogin }) {
   const [status, setStatus] = useState('loading');
@@ -18,9 +19,7 @@ export default function VerifyEmailPage({ onGoToLogin }) {
 
     const verify = async () => {
       try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
-        
-        const response = await fetch(`${baseUrl}/auth/verify-email?token=${token}&email=${email}`);
+        const response = await fetch(`${API_URL}/auth/verify-email?token=${token}&email=${email}`);
         const data = await response.json();
 
         if (response.ok) {

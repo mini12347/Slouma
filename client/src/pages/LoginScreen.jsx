@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Globe, Lock, Mail, Loader, Shield, Activity, Users, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import SloumaLogo from '../shared/SloumaLogo';
 import { translations } from '../shared/translations';
+import { API_URL } from '../services/api';
 
 export default function LoginScreen({ onLoginSuccess, language, setLanguage, onGoToLanding, onGoToSignup }) {
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
@@ -21,8 +22,7 @@ export default function LoginScreen({ onLoginSuccess, language, setLanguage, onG
     setLoading(true);
     setError('');
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
-      const response = await fetch(`${baseUrl}/auth/login`, {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

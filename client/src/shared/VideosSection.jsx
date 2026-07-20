@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { videoService } from '../services/videoService';
 import { Film, PlayCircle } from 'lucide-react';
-
-const videoBaseUrl = (() => {
-  const apiUrl = import.meta.env.VITE_API_BASE_URL;
-  if (apiUrl) return apiUrl.replace(/\/api.*$/, '');
-  return '';
-})();
+import { API_BASE } from '../services/api';
 
 export default function VideosSection({ language, userRole }) {
   const [videos, setVideos] = useState([]);
@@ -62,7 +57,7 @@ export default function VideosSection({ language, userRole }) {
                 {video.url ? (
                   video.url.includes('/uploads/') ? (
                     <video 
-                      src={(!video.url.startsWith('http') ? videoBaseUrl : '') + video.url} 
+                      src={(!video.url.startsWith('http') ? API_BASE : '') + video.url} 
                       className="absolute top-0 left-0 w-full h-full object-cover"
                       controls
                     ></video>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, CheckCircle2, XCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { API_URL } from '../services/api';
 
 export default function SetPasswordPage({ onGoToLogin }) {
   const [email, setEmail] = useState('');
@@ -42,9 +43,7 @@ export default function SetPasswordPage({ onGoToLogin }) {
     if (!validate()) return;
 
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
-
-      const response = await fetch(`${baseUrl}/auth/set-password`, {
+      const response = await fetch(`${API_URL}/auth/set-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, token, password }),

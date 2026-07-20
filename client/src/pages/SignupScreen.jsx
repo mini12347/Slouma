@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Globe, Lock, Mail, Loader, Shield, Activity, Users, ArrowLeft, Eye, EyeOff, User, CheckCircle2, Stethoscope, HeartPulse, Phone, MapPin, Calendar, Droplets, ChevronDown } from 'lucide-react';
 import SloumaLogo from '../shared/SloumaLogo';
 import { translations } from '../shared/translations';
+import { API_URL } from '../services/api';
 
 
 
@@ -87,13 +88,10 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
   React.useEffect(() => {
     const fetchData = async () => {
       try {
-        const isProduction = window.location.hostname !== 'localhost';
-        const baseUrl = isProduction ? '/api' : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api');
-        
         const [docRes, patRes, cgRes] = await Promise.all([
-          fetch(`${baseUrl}/doctors`),
-          fetch(`${baseUrl}/patients`),
-          fetch(`${baseUrl}/caregivers`)
+          fetch(`${API_URL}/doctors`),
+          fetch(`${API_URL}/patients`),
+          fetch(`${API_URL}/caregivers`)
         ]);
 
         if (docRes.ok) setDoctorsList(await docRes.json());
@@ -202,9 +200,8 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
       if (!patientId) { setError(ta.patientIdRequired); return; }
     }
 
-    setLoading(true);
+      setLoading(true);
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
       
       const signupData = {
         name,
@@ -227,7 +224,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
         ...(role === 'caregiver' && { patientIDs: [patientId] }),
       };
 
-      const response = await fetch(`${baseUrl}/auth/register`, { 
+      const response = await fetch(`${API_URL}/auth/register`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify(signupData) 
@@ -262,9 +259,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
     setLoading(true);
 
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
-
-      const response = await fetch(`${baseUrl}/auth/verify-code`, {
+      const response = await fetch(`${API_URL}/auth/verify-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.toLowerCase(), code: otpCode })
@@ -484,7 +479,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                     <div className="relative group">
                       <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                         className={`w-full ${isRtl ? 'pr-12 pl-4' : 'pl-12 pr-4'} py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl focus:bg-white focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all font-medium text-slate-800`}
-                        placeholder={ta.firstNamePlaceholder} required pattern="[A-Za-zÀ-ÿ\s-]{2,}" title={ta.firstNameHint} />
+                        placeholder={ta.firstNamePlaceholder} required pattern="[-A-Za-zÀ-ÿ\s]{2,}" title={ta.firstNameHint} />
                       <div className={`absolute top-0 ${isRtl ? 'right-0' : 'left-0'} h-full w-12 flex items-center justify-center`}>
                         <User className="w-5 h-5 text-slate-400 group-focus-within:text-teal-500" />
                       </div>
@@ -558,7 +553,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                     <label className="block text-sm font-bold text-slate-700 mb-1">{ta.lastname}</label>
                       <input type="text" value={lastname} onChange={(e) => setLastname(e.target.value)}
                         className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-teal-500 outline-none transition-all font-medium"
-                        placeholder={ta.lastNamePlaceholder} required pattern="[A-Za-zÀ-ÿ\s-]{2,}" title={ta.firstNameHint} />
+                        placeholder={ta.lastNamePlaceholder} required pattern="[-A-Za-zÀ-ÿ\s]{2,}" title={ta.firstNameHint} />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">{ta.phone}</label>

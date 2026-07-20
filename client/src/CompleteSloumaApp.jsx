@@ -8,6 +8,7 @@ import DoctorInterface from './pages/doctor/DoctorInterface';
 import AdminInterface from './pages/admin/AdminInterface';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import SetPasswordPage from './pages/SetPasswordPage';
+import { API_URL } from './services/api';
 
 export default function SloumaHealthApp() {
   const [userRole, setUserRole] = useState(null);
@@ -26,7 +27,6 @@ export default function SloumaHealthApp() {
 
   const fetchUserData = async (role, _id) => {
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
       const token = localStorage.getItem('token');
 
       let endpoint = '';
@@ -36,7 +36,7 @@ export default function SloumaHealthApp() {
       else if (role === 'admin') endpoint = `/admins/${_id}`;
       else return;
 
-      const response = await fetch(`${baseUrl}${endpoint}`, {
+      const response = await fetch(`${API_URL}${endpoint}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
