@@ -479,7 +479,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                     <div className="relative group">
                       <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                         className={`w-full ${isRtl ? 'pr-12 pl-4' : 'pl-12 pr-4'} py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl focus:bg-white focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all font-medium text-slate-800`}
-                        placeholder={ta.firstNamePlaceholder} required pattern="[-A-Za-zÀ-ÿ ]{2,}" title={ta.firstNameHint} />
+                        placeholder={ta.firstNamePlaceholder} required pattern="[-A-Za-z ]{2,}" title={ta.firstNameHint} />
                       <div className={`absolute top-0 ${isRtl ? 'right-0' : 'left-0'} h-full w-12 flex items-center justify-center`}>
                         <User className="w-5 h-5 text-slate-400 group-focus-within:text-teal-500" />
                       </div>
@@ -553,7 +553,7 @@ export default function SignupScreen({ language, setLanguage, onGoToLogin, onGoT
                     <label className="block text-sm font-bold text-slate-700 mb-1">{ta.lastname}</label>
                       <input type="text" value={lastname} onChange={(e) => setLastname(e.target.value)}
                         className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-teal-500 outline-none transition-all font-medium"
-                        placeholder={ta.lastNamePlaceholder} required pattern="[-A-Za-zÀ-ÿ ]{2,}" title={ta.firstNameHint} />
+                        placeholder={ta.lastNamePlaceholder} required pattern="[-A-Za-z ]{2,}" title={ta.firstNameHint} />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">{ta.phone}</label>
