@@ -1,0 +1,186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* SLOUMA HEALTHCARE - PROFESSIONAL CSS */
+
+/* Reset & Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif, 'Cairo', 'Tajawal', 'Amiri';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #f8fafc;
+  color: #1e293b;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* Dark mode body */
+html.dark body {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+/* Smooth transition for all themed elements */
+html.dark * {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.15s ease, box-shadow 0.3s ease;
+}
+
+/* Safe area padding for notched devices (iPhone X+) */
+@supports (padding: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Prevent iOS zoom on input focus */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Dark scrollbar */
+html.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Base interactive elements */
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input, select, textarea {
+  font-family: inherit;
+}
+
+/* Sidebar Utilities */
+.sidebar-transition {
+  transition: transform 0.3s ease-in-out, margin 0.3s ease-in-out, width 0.3s ease-in-out;
+}
+
+.main-content-transition {
+  transition: margin 0.3s ease-in-out, padding 0.3s ease-in-out;
+}
+
+/* ===================================
+   LANDING PAGE ANIMATIONS
+   =================================== */
+
+/* Slide-up entrance */
+@keyframes landing-slide-up {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.landing-slide-up {
+  animation: landing-slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Fade-in */
+@keyframes landing-fade-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.landing-fade-in {
+  animation: landing-fade-in 0.25s ease-out both;
+}
+
+/* Floating blobs */
+@keyframes landing-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-30px) scale(1.05); }
+}
+.landing-float {
+  animation: landing-float 6s ease-in-out infinite;
+}
+.landing-float-delayed {
+  animation: landing-float 7s ease-in-out 1.5s infinite;
+}
+
+/* Pulsing logo glow */
+@keyframes landing-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4); }
+  50%      { box-shadow: 0 0 0 12px rgba(20, 184, 166, 0); }
+}
+.landing-pulse {
+  animation: landing-pulse 2.5s ease-in-out infinite;
+  border-radius: 14px;
+}
+
+/* Bounce scroll indicator */
+@keyframes landing-bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-12px); }
+  60% { transform: translateY(-6px); }
+}
+.landing-bounce {
+  animation: landing-bounce 2s ease infinite;
+}
+
+/* Card pop-in */
+@keyframes landing-card-pop {
+  from { opacity: 0; transform: scale(0.85) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.landing-card-pop {
+  animation: landing-card-pop 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Bar chart grow */
+@keyframes landing-bar-grow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+.landing-bar-grow {
+  transform-origin: bottom;
+  animation: landing-bar-grow 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

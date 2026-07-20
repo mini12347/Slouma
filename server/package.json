@@ -1,0 +1,35 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "npm install --omit=dev && node src/index.js",
+    "seed": "node seedRealisticUsers.js",
+    "seed-full": "node seedFullData.js"
+  },
+  "keywords": [
+    "healthcare",
+    "api",
+    "mongodb"
+  ],
+  "author": "Slouma Team",
+  "license": "ISC",
+  "description": "Slouma Healthcare API Server",
+  "dependencies": {
+    "@getbrevo/brevo": "^5.0.4",
+    "@sendgrid/mail": "^8.1.6",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.3.1",
+    "multer": "^2.1.1",
+    "node-cache": "^5.1.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
